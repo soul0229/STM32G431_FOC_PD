@@ -247,22 +247,18 @@ void ClarkeTransform(pFOC_Info pFOC)
     pFOC->iAlpha = pFOC->ia;
     pFOC->iBeta = (pFOC->ia + 2.0f * pFOC->ib) / FLOAT_SQRT3;
 }
-// arm_cos_q15 arm_sin_q15
+
 void ParkTransform(pFOC_Info pFOC)
 {
     pFOC->id = pFOC->iAlpha * (float)arm_cos_q15(pFOC->radian)  + pFOC->iBeta * (float)arm_sin_q15(pFOC->radian);
     pFOC->iq = -pFOC->iAlpha * (float)arm_sin_q15(pFOC->radian)  + pFOC->iBeta * (float)arm_cos_q15(pFOC->radian);
-    // pFOC->id = pFOC->iAlpha * cos_table(pFOC->radian) + pFOC->iBeta * sin_table(pFOC->radian);
-    // pFOC->iq = -pFOC->iAlpha * sin_table(pFOC->radian) + pFOC->iBeta * cos_table(pFOC->radian);
 }
 
 void ParkAntiTransform(pFOC_Info pFOC)
 {
     pSvpwm_Info svpwm = pFOC->Svpwm;
-    svpwm->u_alpha = pFOC->iAlphaSVPWM = pFOC->idPID.out * (float)arm_cos_q15(pFOC->radian) / (uint16_t)0x8000  - pFOC->iqPID.out * (float)arm_sin_q15(pFOC->radian) / (uint16_t)0x8000;
-    svpwm->u_beta = pFOC->iBetaSVPWM = pFOC->idPID.out * (float)arm_sin_q15(pFOC->radian) / (uint16_t)0x8000  + pFOC->iqPID.out * (float)arm_cos_q15(pFOC->radian) / (uint16_t)0x8000;
-    // svpwm->u_alpha = pFOC->iAlphaSVPWM = pFOC->idPID.out * cos_table(pFOC->radian) - pFOC->iqPID.out * sin_table(pFOC->radian);
-    // svpwm->u_beta = pFOC->iBetaSVPWM = pFOC->idPID.out * sin_table(pFOC->radian) + pFOC->iqPID.out * cos_table(pFOC->radian);
+    svpwm->u_alpha = pFOC->iAlphaSVPWM = pFOC->idPID.out * (float)arm_cos_q15(pFOC->radian) / (uint16_t)32768  - pFOC->iqPID.out * (float)arm_sin_q15(pFOC->radian) / (uint16_t)32768;
+    svpwm->u_beta = pFOC->iBetaSVPWM = pFOC->idPID.out * (float)arm_sin_q15(pFOC->radian) / (uint16_t)32768  + pFOC->iqPID.out * (float)arm_cos_q15(pFOC->radian) / (uint16_t)32768;
 }
 
 bool FOC_init(pFOC_Info pFOC, PWM_Opt *opts)
@@ -287,8 +283,8 @@ void FocControl(pFOC_Info pFOC)
     pSvpwm_Info svpwm = pFOC->Svpwm;
     Svpwm_Opt *s_opts = svpwm->s_opts;
 
-    pFOC->radian = (pFOC->radian+64)%(uint16_t)0x8000;
-    param.angle = pFOC->radian;
+    // pFOC->radian = ((uint16_t)(pFOC->radian-1))%(uint16_t)32768;
+    param.angle = pFOC->radian;    
     param.value = arm_sin_q15(pFOC->radian);
     ParkAntiTransform(pFOC);
     s_opts->SvpwmControl(svpwm);

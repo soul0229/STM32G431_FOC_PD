@@ -356,7 +356,7 @@ void TIM8_CC_IRQHandler(void)
   /* USER CODE BEGIN TIM8_CC_IRQn 1 */
   // HAL_ADCEx_InjectedStart_IT(&hadc2);
   // CDC_Transmit_FS((uint8_t*)&param, sizeof(FocParam));
-  HAL_UART_Transmit_DMA(&huart1, (uint8_t*)&param, sizeof(FocParam));
+  // HAL_UART_Transmit_DMA(&huart1, (uint8_t*)&param, sizeof(FocParam));
   /* USER CODE END TIM8_CC_IRQn 1 */
 }
 

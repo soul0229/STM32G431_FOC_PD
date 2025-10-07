@@ -38,7 +38,7 @@ typedef struct
     float tar_iq;
     float tar_id;
     float angle;            // 角度
-    int16_t radian;         // 弧度
+    uint16_t radian;        // 弧度
 
     float iAlphaSVPWM;      // park反变换后 后 Iα
     float iBetaSVPWM;       // park反变换后 后 Iβ

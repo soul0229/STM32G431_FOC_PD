@@ -12,7 +12,7 @@ const FOC_Info FocDefault = {
 
 	.iqPID.kp = 0.0008f,
 	.iqPID.ki = 0.0004f,
-	.iqPID.out = 2.5,
+	.iqPID.out = 3,
 };
 
 void SetTIM1Channel1HighLeaveTime_us(void *p, int16_t time)
@@ -74,7 +74,7 @@ void Motor_Init(void *p)
     SetTIM1Channel1HighLeaveTime_us(htim, 0);
     SetTIM1Channel2HighLeaveTime_us(htim, 0);
     SetTIM1Channel3HighLeaveTime_us(htim, 0);
-    SetTIM1Channel3HighLeaveTime_us(htim, 2600);
+    SetTIM1Channel3HighLeaveTime_us(htim, 4000);
 		    
 	TimerxChannel4ITEnable(htim, false);
 }

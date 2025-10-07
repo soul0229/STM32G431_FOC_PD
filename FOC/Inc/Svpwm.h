@@ -76,7 +76,7 @@ typedef struct {
     uint8_t HallB[3];
     uint8_t Dirction[2];
     uint16_t adc_value[4];
-    int32_t angle;
+    uint32_t angle;
     int32_t value;
     uint32_t speed;
     uint8_t tail[2];

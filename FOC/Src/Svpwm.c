@@ -13,23 +13,13 @@ FocParam param = {
 };
 uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len);
 
-static const uint8_t sector_judg[2][2][2] = 
-{
-    {
-        { 0, 2},
-        { 6, 1},
-    },
-    {
-        { 4, 3},
-        { 5, 0},
-    },
-};
-
 void SvpwmSectorJudgment(void *this)
 {
     pSvpwm_Info pSvpwm = this;
-    // uint8_t index[3];
-    // memset(index, 0x00, sizeof(index));
+    const uint8_t sector_judg[8] = {0, 2, 6, 1, 4, 3, 5, 0};
+    uint8_t a = 0;
+    uint8_t b = 0;
+    uint8_t c = 0;
     float u_alpha_sqrt3_2, u_beta, u_beta_2;
 
     u_alpha_sqrt3_2 = pSvpwm->u_alpha * FLOAT_SQRT3_2;
@@ -40,59 +30,19 @@ void SvpwmSectorJudgment(void *this)
     pSvpwm->u2 = u_alpha_sqrt3_2 - u_beta_2;
     pSvpwm->u3 = -u_alpha_sqrt3_2 - u_beta_2;
 
-
-    // if (pSvpwm->u1 > 0) {
-    //     index[0] = 1;
-    // }
-    // if (pSvpwm->u2 > 0) {
-    //     index[1] = 1;
-    // }
-    // if (pSvpwm->u3 > 0) {
-    //     index[2] = 1;
-    // }
-    // pSvpwm->sector = sector_judg[index[2]][index[1]][index[0]];
-
-    uint8_t a;
-    uint8_t b;
-    uint8_t c;
-    uint8_t sector;
-    if (pSvpwm->u1 > 0) {
+    if(pSvpwm->u1 > 0)
+    {
         a = 1;
-    } else {
-        a = 0;
-    }
-    if (pSvpwm->u2 > 0) {
+    } 
+    if(pSvpwm->u2 > 0)
+    {
         b = 1;
-    } else {
-        b = 0;
-    }
-    if (pSvpwm->u3 > 0) {
+    } 
+    if(pSvpwm->u3 > 0)
+    {
         c = 1;
-    } else {
-        c = 0;
     }
-
-    sector = 4*c + 2*b + a;
-    switch (sector) {
-        case 3:
-            pSvpwm->sector = 1;
-            break;
-        case 1:
-            pSvpwm->sector = 2;
-            break;
-        case 5:
-            pSvpwm->sector = 3;
-            break;
-        case 4:
-            pSvpwm->sector = 4;
-            break;
-        case 6:
-            pSvpwm->sector = 5;
-            break;
-        case 2:
-            pSvpwm->sector = 6;
-            break;
-    }
+    pSvpwm->sector = sector_judg[c<<2|b<<1|a];
 }
 
 
@@ -104,33 +54,33 @@ void GetVectorDuration(void *this)
 	
     switch (pSvpwm->sector) {
         case 1:
-            pSvpwm->t4 = FLOAT_SQRT3 * ts / udc * pSvpwm->u2;
-            pSvpwm->t6 = FLOAT_SQRT3 * ts / udc * pSvpwm->u1;
+            pSvpwm->t4 = FLOAT_SQRT3_2 * ts * pSvpwm->u2 / udc;
+            pSvpwm->t6 = FLOAT_SQRT3_2 * ts * pSvpwm->u1 / udc;
             pSvpwm->t0 = pSvpwm->t7 = (ts - pSvpwm->t4 - pSvpwm->t6) / 2;
             break;
         case 2:
-            pSvpwm->t2 = - FLOAT_SQRT3 * ts / udc * pSvpwm->u2;
-            pSvpwm->t6 = - FLOAT_SQRT3 * ts / udc * pSvpwm->u3;
+            pSvpwm->t2 = - FLOAT_SQRT3_2 * ts * pSvpwm->u2 / udc;
+            pSvpwm->t6 = - FLOAT_SQRT3_2 * ts * pSvpwm->u3 / udc;
             pSvpwm->t0 = pSvpwm->t7 = (ts - pSvpwm->t2 - pSvpwm->t6) / 2;
             break;
         case 3:
-            pSvpwm->t2 = FLOAT_SQRT3 * ts / udc * pSvpwm->u1;
-            pSvpwm->t3 = FLOAT_SQRT3 * ts / udc * pSvpwm->u3;
+            pSvpwm->t2 = FLOAT_SQRT3_2 * ts * pSvpwm->u1 / udc;
+            pSvpwm->t3 = FLOAT_SQRT3_2 * ts * pSvpwm->u3 / udc;
             pSvpwm->t0 = pSvpwm->t7 = (ts - pSvpwm->t2 - pSvpwm->t3) / 2;
             break;
         case 4:
-            pSvpwm->t1 = - FLOAT_SQRT3 * ts / udc * pSvpwm->u1;
-            pSvpwm->t3 = - FLOAT_SQRT3 * ts / udc * pSvpwm->u2;
+            pSvpwm->t1 = - FLOAT_SQRT3_2 * ts * pSvpwm->u1 / udc;
+            pSvpwm->t3 = - FLOAT_SQRT3_2 * ts * pSvpwm->u2 / udc;
             pSvpwm->t0 = pSvpwm->t7 = (ts - pSvpwm->t1 - pSvpwm->t3) / 2;
             break;
         case 5:
-            pSvpwm->t1 = FLOAT_SQRT3 * ts / udc * pSvpwm->u3;
-            pSvpwm->t5 = FLOAT_SQRT3 * ts / udc * pSvpwm->u2;
+            pSvpwm->t1 = FLOAT_SQRT3_2 * ts * pSvpwm->u3 / udc;
+            pSvpwm->t5 = FLOAT_SQRT3_2 * ts * pSvpwm->u2 / udc;
             pSvpwm->t0 = pSvpwm->t7 = (ts - pSvpwm->t1 - pSvpwm->t5) / 2;
             break;
         case 6:
-            pSvpwm->t4 = - FLOAT_SQRT3 * ts / udc * pSvpwm->u3;
-            pSvpwm->t5 = - FLOAT_SQRT3 * ts / udc * pSvpwm->u1;
+            pSvpwm->t4 = - FLOAT_SQRT3_2 * ts * pSvpwm->u3 / udc;
+            pSvpwm->t5 = - FLOAT_SQRT3_2 * ts * pSvpwm->u1 / udc;
             pSvpwm->t0 = pSvpwm->t7 = (ts - pSvpwm->t4 - pSvpwm->t5) / 2;
             break;
         default:
@@ -263,7 +213,7 @@ pSvpwm_Info Svpwm_init(PWM_Opt *opts)
     }
 
     svpwm->udc = 5;
-    svpwm->ts = 3800;
+    svpwm->ts = 4200;
 
     svpwm->s_opts = s_opts;
     return svpwm;

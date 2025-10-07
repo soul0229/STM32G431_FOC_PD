@@ -136,6 +136,7 @@ int main(void)
   HAL_ADCEx_InjectedStart_IT(&hadc2);
   uint16_t delay[4] = {100, 100, 100, 700};
   uint8_t cnt = 0;
+  param.HallA[2] = 1;
   // HAL_CORDIC_Calculate_DMA();
   /* USER CODE END 2 */
 
@@ -220,14 +221,20 @@ const int8_t direction[8][8]  =
 	[7] = {},
 };
 
+const uint16_t hall_angle[8] = {0, 28806, 6930, 1614, 17952, 23352, 12234, 0};
+const uint16_t hall_angle_r[8] = {0, 32377, 10347, 4747, 21261, 26815, 16157, 0};
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) 
 {
   if(htim == &htim2)
   {
+    if(htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1)
+      param.speed = HAL_TIM_ReadCapturedValue(&htim2, TIM_CHANNEL_1);
     param.HallA[2] = HAL_GPIO_ReadPin(HALL1_U_GPIO_Port, HALL1_U_Pin);
     param.HallA[1] = HAL_GPIO_ReadPin(HALL1_V_GPIO_Port, HALL1_V_Pin);
     param.HallA[0] = HAL_GPIO_ReadPin(HALL1_W_GPIO_Port, HALL1_W_Pin);
 
+    FOC_motor[1]->radian = ((uint16_t)(hall_angle[param.HallA[0]<<2|param.HallA[1]<<1|param.HallA[2]]-8192))%(uint16_t)32768;
+    HAL_UART_Transmit_DMA(&huart1, (uint8_t*)&param, sizeof(FocParam));
     current[0] = param.HallA[0] | param.HallA[1] << 1 | param.HallA[2] << 2;
     param.Dirction[0] = direction[last[0]][current[0]];
     last[0] = current[0];
@@ -263,6 +270,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 	if(GPIO_Pin == KEY1_Pin)
   {
     // MotorEnable(FOC_motor[0], state);
+    // FOC_motor[1]->radian = 32767;
     MotorEnable(FOC_motor[1], state);
     state = state?false:true;
 	}
