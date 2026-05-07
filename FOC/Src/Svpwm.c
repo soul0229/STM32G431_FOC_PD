@@ -7,10 +7,9 @@
 #include <stdlib.h>
 
 #include "usb_device.h"
-FocParam param = {
-    .header  = {0xaa},
-    .tail = {0xcc},
-};
+
+const FocParam default_param = {.header  = {0xaa},.tail = {0xcc}};
+FocParam param[PRINTF_BUF_NUM][PRINTF_SUBBUF_NUM];
 uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len);
 
 void SvpwmSectorJudgment(void *this)
@@ -51,34 +50,34 @@ void GetVectorDuration(void *this)
     pSvpwm_Info pSvpwm = this;
 	int32_t ts = pSvpwm->ts;
 	float udc = pSvpwm->udc;
-	
+
     switch (pSvpwm->sector) {
-        case 1:
+        case SECTOR_1:
             pSvpwm->t4 = FLOAT_SQRT3_2 * ts * pSvpwm->u2 / udc;
             pSvpwm->t6 = FLOAT_SQRT3_2 * ts * pSvpwm->u1 / udc;
             pSvpwm->t0 = pSvpwm->t7 = (ts - pSvpwm->t4 - pSvpwm->t6) / 2;
             break;
-        case 2:
+        case SECTOR_2:
             pSvpwm->t2 = - FLOAT_SQRT3_2 * ts * pSvpwm->u2 / udc;
             pSvpwm->t6 = - FLOAT_SQRT3_2 * ts * pSvpwm->u3 / udc;
             pSvpwm->t0 = pSvpwm->t7 = (ts - pSvpwm->t2 - pSvpwm->t6) / 2;
             break;
-        case 3:
+        case SECTOR_3:
             pSvpwm->t2 = FLOAT_SQRT3_2 * ts * pSvpwm->u1 / udc;
             pSvpwm->t3 = FLOAT_SQRT3_2 * ts * pSvpwm->u3 / udc;
             pSvpwm->t0 = pSvpwm->t7 = (ts - pSvpwm->t2 - pSvpwm->t3) / 2;
             break;
-        case 4:
+        case SECTOR_4:
             pSvpwm->t1 = - FLOAT_SQRT3_2 * ts * pSvpwm->u1 / udc;
             pSvpwm->t3 = - FLOAT_SQRT3_2 * ts * pSvpwm->u2 / udc;
             pSvpwm->t0 = pSvpwm->t7 = (ts - pSvpwm->t1 - pSvpwm->t3) / 2;
             break;
-        case 5:
+        case SECTOR_5:
             pSvpwm->t1 = FLOAT_SQRT3_2 * ts * pSvpwm->u3 / udc;
             pSvpwm->t5 = FLOAT_SQRT3_2 * ts * pSvpwm->u2 / udc;
             pSvpwm->t0 = pSvpwm->t7 = (ts - pSvpwm->t1 - pSvpwm->t5) / 2;
             break;
-        case 6:
+        case SECTOR_6:
             pSvpwm->t4 = - FLOAT_SQRT3_2 * ts * pSvpwm->u3 / udc;
             pSvpwm->t5 = - FLOAT_SQRT3_2 * ts * pSvpwm->u1 / udc;
             pSvpwm->t0 = pSvpwm->t7 = (ts - pSvpwm->t4 - pSvpwm->t5) / 2;
@@ -94,34 +93,34 @@ void SvpwmGenerate(void *this)
     PWM_Opt *p_opts = pSvpwm->s_opts->pwm_opts;
     void *private = p_opts->private;
 
-	uint16_t t[Total] = {0};
+	uint16_t t[PHASE_MAX] = {0};
     switch (pSvpwm->sector) {
-        case 1:
+        case SECTOR_1:
             t[PHASE_U] = pSvpwm->t4 + pSvpwm->t6 + pSvpwm->t7;
             t[PHASE_V] = pSvpwm->t6 + pSvpwm->t7;
             t[PHASE_W] = pSvpwm->t7;
             break;
-        case 2:
+        case SECTOR_2:
             t[PHASE_U] = pSvpwm->t6 + pSvpwm->t7;
             t[PHASE_V] = pSvpwm->t2 + pSvpwm->t6 + pSvpwm->t7;
             t[PHASE_W] = pSvpwm->t7;
             break;
-        case 3:
+        case SECTOR_3:
             t[PHASE_U] = pSvpwm->t7;
             t[PHASE_V] = pSvpwm->t2 + pSvpwm->t3 + pSvpwm->t7;
             t[PHASE_W] = pSvpwm->t3 + pSvpwm->t7;
             break;
-        case 4:
+        case SECTOR_4:
             t[PHASE_U] = pSvpwm->t7;
             t[PHASE_V] = pSvpwm->t3 + pSvpwm->t7;
             t[PHASE_W] = pSvpwm->t1 + pSvpwm->t3 + pSvpwm->t7;
             break;
-        case 5:
+        case SECTOR_5:
             t[PHASE_U] = pSvpwm->t5 + pSvpwm->t7;
             t[PHASE_V] = pSvpwm->t7;
             t[PHASE_W] = pSvpwm->t1 + pSvpwm->t5 + pSvpwm->t7;
             break;
-        case 6:
+        case SECTOR_6:
             t[PHASE_U] = pSvpwm->t4 + pSvpwm->t5 + pSvpwm->t7;
             t[PHASE_V] = pSvpwm->t7;
             t[PHASE_W] = pSvpwm->t5 + pSvpwm->t7;
@@ -129,12 +128,12 @@ void SvpwmGenerate(void *this)
     }
     // uint8_t len = sprintf(uart, "U:%d V:%d W:%d\r\n", t[PHASE_U], t[PHASE_V], t[PHASE_W]);
     // memcpy(param.PWM, t, sizeof(t));
-    t[INT] = 4000;
+    t[PHASE_INT] = 4000;
     // CDC_Transmit_FS((uint8_t*)&param, sizeof(FocParam));
     p_opts->SetPWM[PHASE_U](private, t[PHASE_U]);
     p_opts->SetPWM[PHASE_V](private, t[PHASE_V]);
     p_opts->SetPWM[PHASE_W](private, t[PHASE_W]);
-    p_opts->SetPWM[INT](private, t[INT]);
+    p_opts->SetPWM[PHASE_INT](private, t[PHASE_INT]);
 }
 
 Sector GetSVPWMSector(void *this)
@@ -164,28 +163,17 @@ const Svpwm_Opt svpwm_opts =
 
 bool check_pwm_opts(PWM_Opt *opts)
 {
-    if(opts->enable == NULL)
+    if(!(opts->enable && opts->init && opts->private))
     {
         return false;
     }
 
-    if(opts->init == NULL)
+    if(!(opts->SetPWM[PHASE_U] && opts->SetPWM[PHASE_V] && \
+        opts->SetPWM[PHASE_W] && opts->SetPWM[PHASE_INT]))
     {
         return false;
     }
 
-    if(opts->private == NULL)
-    {
-        return false;
-    }
-
-    for(uint8_t function = PHASE_U; function < Total; function++)
-    {
-        if(opts->SetPWM[function] == NULL)
-        {
-            return false;
-        }
-    }
     return true;
 }
 
@@ -193,13 +181,21 @@ pSvpwm_Info Svpwm_init(PWM_Opt *opts)
 {
     if(!check_pwm_opts(opts))
     {
-        return NULL;
+        goto check_pwm_opts_error;
+    }
+
+    for(uint8_t dim1 = 0; dim1 < PRINTF_BUF_NUM; dim1++)
+    {
+        for(uint8_t dim2 = 0; dim2 < PRINTF_BUF_NUM; dim2++)
+        {
+            param[dim1][dim2] = default_param;
+        }
     }
 
     Svpwm_Opt *s_opts = malloc(sizeof(Svpwm_Opt));
     if(!s_opts)
     {
-        return NULL;
+        goto svpwm_malloc_error;
     }
     *s_opts = svpwm_opts;
     s_opts->pwm_opts = opts;
@@ -207,8 +203,7 @@ pSvpwm_Info Svpwm_init(PWM_Opt *opts)
     pSvpwm_Info svpwm = malloc(sizeof(Svpwm_Info));
     if(!svpwm)
     {
-        free(s_opts);
-        return NULL;
+        goto pSvpwm_info_malloc_error;
     }
     memset(svpwm, 0x00, sizeof(Svpwm_Info));
     svpwm->udc = 5;
@@ -216,6 +211,13 @@ pSvpwm_Info Svpwm_init(PWM_Opt *opts)
 
     svpwm->s_opts = s_opts;
     return svpwm;
+
+pSvpwm_info_malloc_error:
+    free(s_opts);
+svpwm_malloc_error:
+check_pwm_opts_error:
+
+    return NULL;
 }
 
 void Svpwm_deinit(pSvpwm_Info svpwm)

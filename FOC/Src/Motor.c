@@ -6,7 +6,7 @@
 #include "stdint.h"
 #include "stdbool.h"
 
-const FOC_Info FocDefault = {
+static const FOC_Info FocDefault = {
 	.rNum = 3,
 	.idPID.kp = 0.0008f,
 	.idPID.ki = 0.0004f,
@@ -16,31 +16,31 @@ const FOC_Info FocDefault = {
 	.iqPID.out = 0,
 };
 
-void SetTIM1Channel1HighLeaveTime_us(void *p, int16_t time)
+static void SetTIM1Channel1HighLeaveTime_us(void *p, int16_t time)
 {
 	TIM_HandleTypeDef *htim = p;
     __HAL_TIM_SET_COMPARE(htim, PWM_CHANNEL1, time);
 }
 
-void SetTIM1Channel2HighLeaveTime_us(void *p, int16_t time)
+static void SetTIM1Channel2HighLeaveTime_us(void *p, int16_t time)
 {
 	TIM_HandleTypeDef *htim = p;
     __HAL_TIM_SET_COMPARE(htim, PWM_CHANNEL2, time);
 }
 
-void SetTIM1Channel3HighLeaveTime_us(void *p, int16_t time)
+static void SetTIM1Channel3HighLeaveTime_us(void *p, int16_t time)
 {
 	TIM_HandleTypeDef *htim = p;
     __HAL_TIM_SET_COMPARE(htim, PWM_CHANNEL3, time);
 }
 
-void SetTIM1Channel4HighLeaveTime_us(void *p, int16_t time)
+static void SetTIM1Channel4HighLeaveTime_us(void *p, int16_t time)
 {
 	TIM_HandleTypeDef *htim = p;
     __HAL_TIM_SET_COMPARE(htim, PWM_CHANNEL4, time);
 }
 
-void TimerxChannel4ITEnable(void *p, bool isEnable)
+static void TimerxChannel4ITEnable(void *p, bool isEnable)
 {
 	TIM_HandleTypeDef *htim = p;
     if(isEnable) {
@@ -69,7 +69,7 @@ void TimerxChannel4ITEnable(void *p, bool isEnable)
     }
 }
 
-void Motor_Init(void *p)
+static void Motor_Init(void *p)
 {
 	TIM_HandleTypeDef *htim = p;
     SetTIM1Channel1HighLeaveTime_us(htim, 0);
@@ -79,6 +79,17 @@ void Motor_Init(void *p)
 		    
 	TimerxChannel4ITEnable(htim, false);
 }
+
+static const PWM_Opt pwmOptDefault = 
+{
+	.enable = TimerxChannel4ITEnable,
+	.init = Motor_Init,
+	.SetPWM[PHASE_U] = SetTIM1Channel1HighLeaveTime_us,
+	.SetPWM[PHASE_V] = SetTIM1Channel2HighLeaveTime_us,
+	.SetPWM[PHASE_W] = SetTIM1Channel3HighLeaveTime_us,
+	.SetPWM[INT] = SetTIM1Channel4HighLeaveTime_us,
+	.private = NULL
+};
 
 static uint16_t getADCSampleValueU(void *private)
 {
@@ -101,7 +112,7 @@ static void Motor_Adc_Init(void *private)
   	HAL_ADCEx_InjectedStart_IT((ADC_HandleTypeDef *)private);
 }
 
-static const ADC_Info adcCfg = 
+static const ADC_Info adcDefaultCfg = 
 {
 	.adcRefVolt = 3.4,
 	.amplifier = 11,
@@ -117,46 +128,41 @@ pFOC_Info motor_init(TIM_HandleTypeDef *htim, ADC_HandleTypeDef *hadc)
 	PWM_Opt *p_opts = malloc(sizeof(PWM_Opt));
 	if(p_opts == NULL)
 	{
-		return NULL;
+		goto pwm_malloc_error;
 	}
-
-	*p_opts = (PWM_Opt){
-	.enable = TimerxChannel4ITEnable,
-	.init = Motor_Init,
-	.SetPWM[PHASE_U] = SetTIM1Channel1HighLeaveTime_us,
-	.SetPWM[PHASE_V] = SetTIM1Channel2HighLeaveTime_us,
-	.SetPWM[PHASE_W] = SetTIM1Channel3HighLeaveTime_us,
-	.SetPWM[INT] = SetTIM1Channel4HighLeaveTime_us,
-	.private = htim,
-	};
+	*p_opts = pwmOptDefault;
+	p_opts->private = htim;
 
 	ADC_Info *ADC_opts = malloc(sizeof(ADC_Info));
 	if(ADC_opts == NULL)
 	{
-		free(p_opts);
-		return NULL;
+		goto adc_malloc_error;
 	}
-	*ADC_opts = adcCfg;
+	*ADC_opts = adcDefaultCfg;
 	ADC_opts->private = hadc;
 
 	pFOC_Info foc = malloc(sizeof(FOC_Info));
 	if(foc == NULL)
 	{
-		free(ADC_opts);
-		free(p_opts);
-		return NULL;
+		goto foc_malloc_error;
 	}
-	memset(foc, 0x00, sizeof(FOC_Info));
 	*foc = FocDefault;
+
 	if(!FOC_init(foc, p_opts, ADC_opts))
 	{
-		free(ADC_opts);
-		free(p_opts);
-		return NULL;
+		goto foc_init_error;
 	}
 	p_opts->init(p_opts->private);
 	ADC_opts->ADC_Init(ADC_opts->private);
 	return foc;
+
+foc_init_error:
+foc_malloc_error:
+	free(ADC_opts);
+adc_malloc_error:
+	free(p_opts);
+pwm_malloc_error:
+	return NULL;
 }
 
 void get_adc_offset(pFOC_Info Foc)

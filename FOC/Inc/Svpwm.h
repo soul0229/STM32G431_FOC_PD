@@ -8,8 +8,8 @@ enum
     PHASE_U = 0,
     PHASE_V,
     PHASE_W,
-    INT,
-    Total
+    PHASE_INT,
+    PHASE_MAX
 };
 
 typedef enum
@@ -19,25 +19,26 @@ typedef enum
     SECTOR_3,
     SECTOR_4,
     SECTOR_5,
-    SECTOR_6
+    SECTOR_6,
+    MAX_SECTOR
 } Sector;
 
 typedef struct 
 {
+    void *private;
     void (*init)(void*);
     void (*enable)(void* , bool);
     void (*SetPWM[Total])(void*, int16_t);
-    void *private;
 } PWM_Opt;
 
 typedef struct 
 {
+    PWM_Opt *pwm_opts;
     void (*SectorJudgment)(void*);
     void (*VectorTime)(void*);
     void (*Generate)(void*);
     void (*SvpwmControl)(void*);
     Sector (*GetSector)(void*);
-    PWM_Opt *pwm_opts;
 } Svpwm_Opt;
 
 typedef struct
@@ -70,14 +71,14 @@ void Svpwm_deinit(pSvpwm_Info svpwm);
 
 typedef struct {
 	uint8_t header[1];
-	// uint16_t PWM[Total];
-    // uint8_t HallA[3];
-    // uint8_t HallB[3];
-    // uint8_t Dirction[2];
+	uint16_t PWM[Total];
+    uint8_t HallA[3];
+    uint8_t HallB[3];
+    uint8_t Dirction[2];
     int16_t adc_value[1];
-    // uint32_t angle;
-    // int32_t value;
-    // uint32_t speed;
+    uint32_t angle;
+    int32_t value;
+    uint32_t speed;
     uint8_t tail[1];
 } __attribute__((packed)) FocParam;
 

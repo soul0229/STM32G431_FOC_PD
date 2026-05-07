@@ -33,6 +33,9 @@
 
 #define POPLE_PAIRS				4
 
+#define PRINTF_BUF_NUM          2
+#define PRINTF_SUBBUF_NUM       16
+
 #include "TIMxPWM.h"
 // #include "sincos.h"
 //#include "arm_math.h"
