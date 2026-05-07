@@ -8,8 +8,8 @@
 
 #include "usb_device.h"
 FocParam param = {
-    .header  = {0xaa, 0xbb},
-    .tail = {0xcc, 0xdd},
+    .header  = {0xaa},
+    .tail = {0xcc},
 };
 uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len);
 
@@ -128,10 +128,9 @@ void SvpwmGenerate(void *this)
             break;
     }
     // uint8_t len = sprintf(uart, "U:%d V:%d W:%d\r\n", t[PHASE_U], t[PHASE_V], t[PHASE_W]);
-    memcpy(param.PWM, t, sizeof(t));
+    // memcpy(param.PWM, t, sizeof(t));
     t[INT] = 4000;
     // CDC_Transmit_FS((uint8_t*)&param, sizeof(FocParam));
-
     p_opts->SetPWM[PHASE_U](private, t[PHASE_U]);
     p_opts->SetPWM[PHASE_V](private, t[PHASE_V]);
     p_opts->SetPWM[PHASE_W](private, t[PHASE_W]);
@@ -211,7 +210,7 @@ pSvpwm_Info Svpwm_init(PWM_Opt *opts)
         free(s_opts);
         return NULL;
     }
-
+    memset(svpwm, 0x00, sizeof(Svpwm_Info));
     svpwm->udc = 5;
     svpwm->ts = 4200;
 

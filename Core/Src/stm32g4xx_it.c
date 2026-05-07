@@ -249,7 +249,8 @@ void DMA1_Channel2_IRQHandler(void)
 void ADC1_2_IRQHandler(void)
 {
   /* USER CODE BEGIN ADC1_2_IRQn 0 */
-
+  
+  HAL_UART_Transmit_DMA(&huart1, (uint8_t*)&param, sizeof(FocParam));
   /* USER CODE END ADC1_2_IRQn 0 */
   HAL_ADC_IRQHandler(&hadc1);
   HAL_ADC_IRQHandler(&hadc2);
@@ -350,13 +351,12 @@ void EXTI15_10_IRQHandler(void)
 void TIM8_CC_IRQHandler(void)
 {
   /* USER CODE BEGIN TIM8_CC_IRQn 0 */
-  FocControl(FOC_motor[1]);
+FocControl(FOC_motor[1]);
   /* USER CODE END TIM8_CC_IRQn 0 */
   HAL_TIM_IRQHandler(&htim8);
   /* USER CODE BEGIN TIM8_CC_IRQn 1 */
   // HAL_ADCEx_InjectedStart_IT(&hadc2);
   // CDC_Transmit_FS((uint8_t*)&param, sizeof(FocParam));
-  // HAL_UART_Transmit_DMA(&huart1, (uint8_t*)&param, sizeof(FocParam));
   /* USER CODE END TIM8_CC_IRQn 1 */
 }
 

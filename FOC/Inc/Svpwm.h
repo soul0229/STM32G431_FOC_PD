@@ -60,7 +60,6 @@ typedef struct
     int32_t ts;
     int32_t maxTs;
     int32_t adcTs;
-    
     Sector sector;
     Svpwm_Opt *s_opts;
 } Svpwm_Info;
@@ -70,16 +69,16 @@ pSvpwm_Info Svpwm_init(PWM_Opt *opts);
 void Svpwm_deinit(pSvpwm_Info svpwm);
 
 typedef struct {
-	uint8_t header[2];
-	uint16_t PWM[Total];
-    uint8_t HallA[3];
-    uint8_t HallB[3];
-    uint8_t Dirction[2];
-    uint16_t adc_value[4];
-    uint32_t angle;
-    int32_t value;
-    uint32_t speed;
-    uint8_t tail[2];
+	uint8_t header[1];
+	// uint16_t PWM[Total];
+    // uint8_t HallA[3];
+    // uint8_t HallB[3];
+    // uint8_t Dirction[2];
+    int16_t adc_value[1];
+    // uint32_t angle;
+    // int32_t value;
+    // uint32_t speed;
+    uint8_t tail[1];
 } __attribute__((packed)) FocParam;
 
 #endif /* Svpwm_h */

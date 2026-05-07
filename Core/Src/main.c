@@ -129,14 +129,11 @@ int main(void)
   }
 
   // FOC_motor[0] = motor_init(&htim1);
-  FOC_motor[1] = motor_init(&htim8);
-  HAL_TIMEx_HallSensor_Start_IT(&htim2);
-  HAL_TIMEx_HallSensor_Start_IT(&htim3);
-  HAL_ADCEx_Calibration_Start(&hadc2, ADC_SINGLE_ENDED);
-  HAL_ADCEx_InjectedStart_IT(&hadc2);
+  FOC_motor[1] = motor_init(&htim8, &hadc2);
+  // HAL_TIMEx_HallSensor_Start_IT(&htim2);
+  // HAL_TIMEx_HallSensor_Start_IT(&htim3);
   uint16_t delay[4] = {100, 100, 100, 700};
   uint8_t cnt = 0;
-  param.HallA[2] = 1;
   // HAL_CORDIC_Calculate_DMA();
   /* USER CODE END 2 */
 
@@ -145,10 +142,6 @@ int main(void)
   while (1)
   {
     HAL_Delay(delay[cnt++%4]);
-    // param.angle = (param.angle+16)%(uint16_t)0x8000;
-    // param.value = arm_sin_q15(param.angle);
-    // CDC_Transmit_FS((uint8_t*)&param, sizeof(FocParam));
-    // HAL_Delay(1);
     HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
     /* USER CODE END WHILE */
 
@@ -227,27 +220,27 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 {
   if(htim == &htim2)
   {
-    if(htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1)
-      param.speed = HAL_TIM_ReadCapturedValue(&htim2, TIM_CHANNEL_1);
-    param.HallA[2] = HAL_GPIO_ReadPin(HALL1_U_GPIO_Port, HALL1_U_Pin);
-    param.HallA[1] = HAL_GPIO_ReadPin(HALL1_V_GPIO_Port, HALL1_V_Pin);
-    param.HallA[0] = HAL_GPIO_ReadPin(HALL1_W_GPIO_Port, HALL1_W_Pin);
+    // if(htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1)
+    //   param.speed = HAL_TIM_ReadCapturedValue(&htim2, TIM_CHANNEL_1);
+    // param.HallA[2] = HAL_GPIO_ReadPin(HALL1_U_GPIO_Port, HALL1_U_Pin);
+    // param.HallA[1] = HAL_GPIO_ReadPin(HALL1_V_GPIO_Port, HALL1_V_Pin);
+    // param.HallA[0] = HAL_GPIO_ReadPin(HALL1_W_GPIO_Port, HALL1_W_Pin);
 
-    FOC_motor[1]->radian = ((uint16_t)(hall_angle[param.HallA[0]<<2|param.HallA[1]<<1|param.HallA[2]]-8192))%(uint16_t)32768;
-    HAL_UART_Transmit_DMA(&huart1, (uint8_t*)&param, sizeof(FocParam));
-    current[0] = param.HallA[0] | param.HallA[1] << 1 | param.HallA[2] << 2;
-    param.Dirction[0] = direction[last[0]][current[0]];
-    last[0] = current[0];
+    // // FOC_motor[1]->radian = ((uint16_t)(hall_angle[param.HallA[0]<<2|param.HallA[1]<<1|param.HallA[2]]-8192))%(uint16_t)32768;
+    // // HAL_UART_Transmit_DMA(&huart1, (uint8_t*)&param, sizeof(FocParam));
+    // current[0] = param.HallA[0] | param.HallA[1] << 1 | param.HallA[2] << 2;
+    // param.Dirction[0] = direction[last[0]][current[0]];
+    // last[0] = current[0];
   }
   else if(htim == &htim3)
   {
-    param.HallB[2] = HAL_GPIO_ReadPin(HALL2_U_GPIO_Port, HALL2_U_Pin);
-    param.HallB[1] = HAL_GPIO_ReadPin(HALL2_V_GPIO_Port, HALL2_V_Pin);
-    param.HallB[0] = HAL_GPIO_ReadPin(HALL2_W_GPIO_Port, HALL2_W_Pin);
+    // param.HallB[2] = HAL_GPIO_ReadPin(HALL2_U_GPIO_Port, HALL2_U_Pin);
+    // param.HallB[1] = HAL_GPIO_ReadPin(HALL2_V_GPIO_Port, HALL2_V_Pin);
+    // param.HallB[0] = HAL_GPIO_ReadPin(HALL2_W_GPIO_Port, HALL2_W_Pin);
 
-    current[1] = param.HallB[0] | param.HallB[1] << 1 | param.HallB[2] << 2;
-    param.Dirction[1] = direction[last[1]][current[1]];
-    last[1] = current[1];
+    // current[1] = param.HallB[0] | param.HallB[1] << 1 | param.HallB[2] << 2;
+    // param.Dirction[1] = direction[last[1]][current[1]];
+    // last[1] = current[1];
   }
   // CDC_Transmit_FS((uint8_t*)&param, sizeof(FocParam));
 }
@@ -256,11 +249,11 @@ void HAL_ADCEx_InjectedConvCpltCallback(ADC_HandleTypeDef *hadc)
 {
     if(hadc == &hadc2)
     {
-        param.adc_value[0] = HAL_ADCEx_InjectedGetValue(&hadc2,ADC_INJECTED_RANK_1);
-        param.adc_value[1] = HAL_ADCEx_InjectedGetValue(&hadc2,ADC_INJECTED_RANK_2);
-        param.adc_value[2] = HAL_ADCEx_InjectedGetValue(&hadc2,ADC_INJECTED_RANK_3);
-        param.adc_value[3] = HAL_ADCEx_InjectedGetValue(&hadc2,ADC_INJECTED_RANK_4);
-        // CDC_Transmit_FS((uint8_t*)&param, sizeof(FocParam));
+      FOC_motor[1]->GetPreCurrent(FOC_motor[1]);
+      HAL_ADCEx_InjectedGetValue(&hadc2,ADC_INJECTED_RANK_4);
+      param.adc_value[0] = FOC_motor[1]->ia;
+      param.adc_value[1] = FOC_motor[1]->ib;
+      param.adc_value[2] = FOC_motor[1]->ic;
     }
 }
 
@@ -269,9 +262,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
 	if(GPIO_Pin == KEY1_Pin)
   {
-    // MotorEnable(FOC_motor[0], state);
-    // FOC_motor[1]->radian = 32767;
-    MotorEnable(FOC_motor[1], state);
+    FOC_motor[1]->EnableMotor(FOC_motor[1], state);
     state = state?false:true;
 	}
 }
