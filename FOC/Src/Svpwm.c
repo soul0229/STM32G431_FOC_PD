@@ -6,15 +6,9 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-#include "usb_device.h"
-
-const FocParam default_param = {.header  = {0xaa},.tail = {0xcc}};
-FocParam param[PRINTF_BUF_NUM][PRINTF_SUBBUF_NUM];
-uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len);
-
-void SvpwmSectorJudgment(void *this)
+static void SvpwmSectorJudgment(void *this)
 {
-    pSvpwm_Info pSvpwm = this;
+    Svpwm_t *pSvpwm = this;
     const uint8_t sector_judg[8] = {0, 2, 6, 1, 4, 3, 5, 0};
     uint8_t a = 0;
     uint8_t b = 0;
@@ -45,9 +39,9 @@ void SvpwmSectorJudgment(void *this)
 }
 
 
-void GetVectorDuration(void *this)
+static void GetVectorDuration(void *this)
 {
-    pSvpwm_Info pSvpwm = this;
+    Svpwm_t *pSvpwm = this;
 	int32_t ts = pSvpwm->ts;
 	float udc = pSvpwm->udc;
 
@@ -86,13 +80,10 @@ void GetVectorDuration(void *this)
             break;
     }
 }
-
-void SvpwmGenerate(void *this)
+extern TIM_HandleTypeDef htim8;
+static void SvpwmGenerate(void *this)
 {
-    pSvpwm_Info pSvpwm = this;
-    PWM_Opt *p_opts = pSvpwm->s_opts->pwm_opts;
-    void *private = p_opts->private;
-
+    Svpwm_t *pSvpwm = this;
 	uint16_t t[PHASE_MAX] = {0};
     switch (pSvpwm->sector) {
         case SECTOR_1:
@@ -126,32 +117,27 @@ void SvpwmGenerate(void *this)
             t[PHASE_W] = pSvpwm->t5 + pSvpwm->t7;
             break;
     }
-    // uint8_t len = sprintf(uart, "U:%d V:%d W:%d\r\n", t[PHASE_U], t[PHASE_V], t[PHASE_W]);
-    // memcpy(param.PWM, t, sizeof(t));
-    t[PHASE_INT] = 4000;
-    // CDC_Transmit_FS((uint8_t*)&param, sizeof(FocParam));
-    p_opts->SetPWM[PHASE_U](private, t[PHASE_U]);
-    p_opts->SetPWM[PHASE_V](private, t[PHASE_V]);
-    p_opts->SetPWM[PHASE_W](private, t[PHASE_W]);
-    p_opts->SetPWM[PHASE_INT](private, t[PHASE_INT]);
+
+    pSvpwm->pwm_opts.SetPWM[PHASE_U](pSvpwm->pwm_opts.priv, t[PHASE_U]);
+    pSvpwm->pwm_opts.SetPWM[PHASE_V](pSvpwm->pwm_opts.priv, t[PHASE_V]);
+    pSvpwm->pwm_opts.SetPWM[PHASE_W](pSvpwm->pwm_opts.priv, t[PHASE_W]);
 }
 
-Sector GetSVPWMSector(void *this)
+static Sector GetSVPWMSector(void *this)
 {
-    pSvpwm_Info pSvpwm = this;
+    Svpwm_t *pSvpwm = this;
     return pSvpwm->sector;
 }
 
-void SvpwmControl(void *this)
+static void SvpwmControl(void *this)
 {
-    pSvpwm_Info pSvpwm = this;
-    Svpwm_Opt *s_opts = pSvpwm->s_opts;
-    s_opts->SectorJudgment(this);
-    s_opts->VectorTime(this);
-    s_opts->Generate(this);
+    Svpwm_t *pSvpwm = this;
+    pSvpwm->SectorJudgment(pSvpwm);
+    pSvpwm->VectorTime(pSvpwm);
+    pSvpwm->Generate(pSvpwm);
 }
 
-const Svpwm_Opt svpwm_opts = 
+static const Svpwm_t defaultSvpwm = 
 {
     .Generate = SvpwmGenerate,
     .GetSector = GetSVPWMSector,
@@ -161,9 +147,9 @@ const Svpwm_Opt svpwm_opts =
 };
 
 
-bool check_pwm_opts(PWM_Opt *opts)
+static bool check_pwm_opts(PWM_Opt *opts, void *priv)
 {
-    if(!(opts->enable && opts->init && opts->private))
+    if(!(opts->enable && opts->init && priv))
     {
         return false;
     }
@@ -177,73 +163,40 @@ bool check_pwm_opts(PWM_Opt *opts)
     return true;
 }
 
-pSvpwm_Info Svpwm_init(PWM_Opt *opts)
+Svpwm_t *Svpwm_init(PWM_Opt *pPWM_opts, void *priv)
 {
-    if(!check_pwm_opts(opts))
+    if(!check_pwm_opts(pPWM_opts, priv))
     {
         goto check_pwm_opts_error;
     }
 
-    for(uint8_t dim1 = 0; dim1 < PRINTF_BUF_NUM; dim1++)
+    Svpwm_t *pSvpwm = malloc(sizeof(Svpwm_t));
+    if(!pSvpwm)
     {
-        for(uint8_t dim2 = 0; dim2 < PRINTF_BUF_NUM; dim2++)
-        {
-            param[dim1][dim2] = default_param;
-        }
+        goto Svpwm_t_malloc_error;
     }
+    *pSvpwm = defaultSvpwm;
+    pSvpwm->udc = 5;
+    pSvpwm->ts = 4200;
 
-    Svpwm_Opt *s_opts = malloc(sizeof(Svpwm_Opt));
-    if(!s_opts)
-    {
-        goto svpwm_malloc_error;
-    }
-    *s_opts = svpwm_opts;
-    s_opts->pwm_opts = opts;
+    pSvpwm->pwm_opts = *pPWM_opts;
+    pSvpwm->pwm_opts.priv = priv;
+    
+    return pSvpwm;
 
-    pSvpwm_Info svpwm = malloc(sizeof(Svpwm_Info));
-    if(!svpwm)
-    {
-        goto pSvpwm_info_malloc_error;
-    }
-    memset(svpwm, 0x00, sizeof(Svpwm_Info));
-    svpwm->udc = 5;
-    svpwm->ts = 4200;
-
-    svpwm->s_opts = s_opts;
-    return svpwm;
-
-pSvpwm_info_malloc_error:
-    free(s_opts);
-svpwm_malloc_error:
+Svpwm_t_malloc_error:
 check_pwm_opts_error:
 
     return NULL;
 }
 
-void Svpwm_deinit(pSvpwm_Info svpwm)
+void Svpwm_deinit(Svpwm_t *pSvpwm)
 {
-    if(svpwm == NULL)
+    if(pSvpwm == NULL)
     {
         return;
     }
-
-    if(svpwm->s_opts == NULL)
-    {
-        goto free_svpwm;
-    }
-
-    Svpwm_Opt *s_opts = svpwm->s_opts;
-    if(s_opts->pwm_opts == NULL)
-    {
-        goto free_s_opts;
-    }
-    PWM_Opt *p_opts = s_opts->pwm_opts;
-
-    free(p_opts);
-free_s_opts:
-    free(s_opts);
-free_svpwm:
-    free(svpwm);
+    free(pSvpwm);
 }
 
 

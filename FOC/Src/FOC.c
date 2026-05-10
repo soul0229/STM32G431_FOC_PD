@@ -202,14 +202,14 @@ void LPF_3PhaseUpdate(LPF_3Phase* filter, int16_t input[3], int16_t output[3]) {
 }
 
 
-static void CurrentReconstruction(pFOC_Info pFOC)
+static void CurrentReconstruction(FOC_t *pFOC)
 {
-    Svpwm_Opt *opts = pFOC->Svpwm->s_opts;
+    Svpwm_t *pSvpwm = pFOC->pSvpwm;
 	// pFOC->GetPreCurrent(&pFOC->ia, &pFOC->ib, &pFOC->ic);
 	if (pFOC->rNum < 3) {
         return;
     }
-    switch (opts->GetSector(pFOC->Svpwm)) {
+    switch (pSvpwm->GetSector(pSvpwm)) {
         case 1:
             pFOC->ia =0.0f - pFOC->ib - pFOC->ic;
             break;
@@ -247,29 +247,29 @@ static void ParkTransform(pFOC_Info pFOC)
 
 static void ParkAntiTransform(pFOC_Info pFOC)
 {
-    pSvpwm_Info svpwm = pFOC->Svpwm;
-    svpwm->u_alpha = pFOC->iAlphaSVPWM = pFOC->idPID.out * (float)arm_cos_q15(pFOC->radian) / (uint16_t)32768  - pFOC->iqPID.out * (float)arm_sin_q15(pFOC->radian) / (uint16_t)32768;
-    svpwm->u_beta = pFOC->iBetaSVPWM = pFOC->idPID.out * (float)arm_sin_q15(pFOC->radian) / (uint16_t)32768  + pFOC->iqPID.out * (float)arm_cos_q15(pFOC->radian) / (uint16_t)32768;
+    Svpwm_t *pSvpwm = pFOC->pSvpwm;
+    pSvpwm->u_alpha = pFOC->iAlphaSVPWM = pFOC->idPID.out * (float)arm_cos_q15(pFOC->radian) / (uint16_t)32768  - pFOC->iqPID.out * (float)arm_sin_q15(pFOC->radian) / (uint16_t)32768;
+    pSvpwm->u_beta = pFOC->iBetaSVPWM = pFOC->idPID.out * (float)arm_sin_q15(pFOC->radian) / (uint16_t)32768  + pFOC->iqPID.out * (float)arm_cos_q15(pFOC->radian) / (uint16_t)32768;
 }
 
 static void ADCGetPreCurrent(void *this)
 {
-    pFOC_Info pFOC = this;
-    ADC_Info *adc_opts = pFOC->adc;
-    pFOC->ia = adc_opts->getADCSample[0](adc_opts->private);
-    pFOC->ib = adc_opts->getADCSample[1](adc_opts->private);
-    pFOC->ic = adc_opts->getADCSample[2](adc_opts->private);
-    if(adc_opts->averageCnt < 5000)
+    FOC_t *pFOC = this;
+    ADC_t *pADC = pFOC->pADC;
+    pFOC->ia = pADC->getADCSample[0](pADC->priv);
+    pFOC->ib = pADC->getADCSample[1](pADC->priv);
+    pFOC->ic = pADC->getADCSample[2](pADC->priv);
+    if(pADC->averageCnt < 5000)
     {
-        adc_opts->offset[0] += pFOC->ia;
-        adc_opts->offset[1] += pFOC->ib;
-        adc_opts->offset[2] += pFOC->ic;
-        adc_opts->averageCnt++;
-        if(adc_opts->averageCnt == 5000)
+        pADC->offset[0] += pFOC->ia;
+        pADC->offset[1] += pFOC->ib;
+        pADC->offset[2] += pFOC->ic;
+        pADC->averageCnt++;
+        if(pADC->averageCnt == 5000)
         {
-            adc_opts->offset[0] /= 5000;
-            adc_opts->offset[1] /= 5000;
-            adc_opts->offset[2] /= 5000;
+            pADC->offset[0] /= 5000;
+            pADC->offset[1] /= 5000;
+            pADC->offset[2] /= 5000;
             pFOC->isEnable = true;
             pFOC->iqPID.out = 1;
         }
@@ -278,43 +278,45 @@ static void ADCGetPreCurrent(void *this)
     // pFOC->ia = pFOC->ia - adc_opts->offset[0];
     // pFOC->ib = pFOC->ib - adc_opts->offset[1];
     // pFOC->ic = pFOC->ic - adc_opts->offset[2];
-    pFOC->ia = LPF_SingleUpdate(&filter_ADC, pFOC->ia - adc_opts->offset[0], 0);
-    pFOC->ib = LPF_SingleUpdate(&filter_ADC, pFOC->ib - adc_opts->offset[1], 1);
-    pFOC->ic = LPF_SingleUpdate(&filter_ADC, pFOC->ic - adc_opts->offset[2], 2);
+    pFOC->ia = LPF_SingleUpdate(&filter_ADC, pFOC->ia - pADC->offset[0], 0);
+    pFOC->ib = LPF_SingleUpdate(&filter_ADC, pFOC->ib - pADC->offset[1], 1);
+    pFOC->ic = LPF_SingleUpdate(&filter_ADC, pFOC->ic - pADC->offset[2], 2);
 }
 
 static void MotorEnable(void *this, bool enable)
 {
-    pSvpwm_Info svpwm = ((pFOC_Info)this)->Svpwm;
-    Svpwm_Opt *s_opts = svpwm->s_opts;
-    PWM_Opt *p_opts = s_opts->pwm_opts;
-    p_opts->enable(p_opts->private, enable);
+    PWM_Opt *pPWM =  &((FOC_t*)this)->pSvpwm->pwm_opts;
+    pPWM->enable(pPWM->priv, enable);
 }
 
-bool FOC_init(pFOC_Info pFOC, PWM_Opt *opts, ADC_Info *adcOpts)
+bool FOC_init(FOC_t *pFOC, Svpwm_t *pSvpwm, ADC_t *pADC)
 {
-    if(pFOC == NULL || opts == NULL || adcOpts == NULL)
+    if(pFOC == NULL || pSvpwm == NULL || pADC == NULL)
     {
         return false;
     }
 
-    pSvpwm_Info svpwm = Svpwm_init(opts);
-    if(!svpwm)
-    {
-        return false;
-    }
-    pFOC->Svpwm = svpwm;
-    pFOC->adc = adcOpts;
+    pFOC->pSvpwm = pSvpwm;
+    pFOC->pADC = pADC;
     pFOC->GetPreCurrent = ADCGetPreCurrent;
     pFOC->EnableMotor = MotorEnable;
+    
+    pSvpwm->pwm_opts.init(pSvpwm);
+	pADC->ADC_Init(pADC->priv);
+
     LPF_Init(&filter_ADC, 200, 20000);
     return true;
 }
-extern FocParam param;
-void FocControl(pFOC_Info pFOC)
+
+void FocControl(FOC_t *pFOC)
 {
-    pSvpwm_Info svpwm = pFOC->Svpwm;
-    Svpwm_Opt *s_opts = svpwm->s_opts;
+    if(pFOC == NULL)
+    {
+        return;
+    }
+    
+
+    Svpwm_t *pSvpwm = pFOC->pSvpwm;
     // if(pFOC->isEnable)
     // {
         pFOC->radian = ((uint16_t)(pFOC->radian+32))%(uint16_t)32768;
@@ -322,7 +324,8 @@ void FocControl(pFOC_Info pFOC)
     // ClarkeTransform(pFOC);
     // param.adc_value[0] = atan2f(pFOC->iBeta, pFOC->iAlpha)/PI*32768;
     ParkAntiTransform(pFOC);
-    s_opts->SvpwmControl(svpwm);
+    pSvpwm->SvpwmControl(pSvpwm);
+    
 }
 
 

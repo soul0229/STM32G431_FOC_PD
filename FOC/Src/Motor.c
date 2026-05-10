@@ -6,43 +6,49 @@
 #include "stdint.h"
 #include "stdbool.h"
 
-static const FOC_Info FocDefault = {
-	.rNum = 3,
-	.idPID.kp = 0.0008f,
-	.idPID.ki = 0.0004f,
+const FocParam default_param = {.header  = {0xaa},.tail = {0xcc}};
+FocParam param_buff[PRINTF_BUF_NUM][PRINTF_SUBBUF_NUM];
+FocParam *param = param_buff[0];
 
-	.iqPID.kp = 0.0008f,
-	.iqPID.ki = 0.0004f,
-	.iqPID.out = 0,
+static const FOC_t FocDefault = {
+	.rNum 		= 3,
+	.idPID.kp 	= 0.0008f,
+	.idPID.ki 	= 0.0004f,
+
+	.iqPID.kp 	= 0.0008f,
+	.iqPID.ki 	= 0.0004f,
+	.iqPID.out 	= 0,
 };
 
-static void SetTIM1Channel1HighLeaveTime_us(void *p, int16_t time)
+static void SetTIM1Channel1HighLeaveTime_us(void *priv, int16_t time)
 {
-	TIM_HandleTypeDef *htim = p;
+	TIM_HandleTypeDef *htim = priv;
     __HAL_TIM_SET_COMPARE(htim, PWM_CHANNEL1, time);
 }
 
-static void SetTIM1Channel2HighLeaveTime_us(void *p, int16_t time)
+static void SetTIM1Channel2HighLeaveTime_us(void *priv, int16_t time)
 {
-	TIM_HandleTypeDef *htim = p;
+	TIM_HandleTypeDef *htim = priv;
     __HAL_TIM_SET_COMPARE(htim, PWM_CHANNEL2, time);
 }
 
-static void SetTIM1Channel3HighLeaveTime_us(void *p, int16_t time)
+static void SetTIM1Channel3HighLeaveTime_us(void *priv, int16_t time)
 {
-	TIM_HandleTypeDef *htim = p;
+	TIM_HandleTypeDef *htim = priv;
     __HAL_TIM_SET_COMPARE(htim, PWM_CHANNEL3, time);
 }
 
-static void SetTIM1Channel4HighLeaveTime_us(void *p, int16_t time)
+static void SetTIM1Channel4HighLeaveTime_us(void *priv, int16_t time)
 {
-	TIM_HandleTypeDef *htim = p;
+	TIM_HandleTypeDef *htim = priv;
     __HAL_TIM_SET_COMPARE(htim, PWM_CHANNEL4, time);
 }
 
-static void TimerxChannel4ITEnable(void *p, bool isEnable)
+
+static void TimerxChannel4ITEnable(void *priv, bool isEnable)
 {
-	TIM_HandleTypeDef *htim = p;
+	TIM_HandleTypeDef *htim = priv;
+	
     if(isEnable) {
 			HAL_TIM_PWM_Start(htim,PWM_CHANNEL1);
 			HAL_TIM_PWM_Start(htim,PWM_CHANNEL2);
@@ -69,99 +75,105 @@ static void TimerxChannel4ITEnable(void *p, bool isEnable)
     }
 }
 
-static void Motor_Init(void *p)
+static void Motor_Init(void *this)
 {
-	TIM_HandleTypeDef *htim = p;
-    SetTIM1Channel1HighLeaveTime_us(htim, 0);
-    SetTIM1Channel2HighLeaveTime_us(htim, 0);
-    SetTIM1Channel3HighLeaveTime_us(htim, 0);
-    SetTIM1Channel3HighLeaveTime_us(htim, 4000);
-		    
-	TimerxChannel4ITEnable(htim, false);
+	PWM_Opt *pPWM = &((Svpwm_t*)this)->pwm_opts;
+
+	pPWM->SetPWM[PHASE_U](pPWM->priv, 0);
+	pPWM->SetPWM[PHASE_V](pPWM->priv, 0);
+	pPWM->SetPWM[PHASE_W](pPWM->priv, 0);
+	pPWM->SetPWM[PHASE_INT](pPWM->priv, 2000);
+	pPWM->enable(pPWM->priv, false);
 }
 
 static const PWM_Opt pwmOptDefault = 
 {
-	.enable = TimerxChannel4ITEnable,
-	.init = Motor_Init,
-	.SetPWM[PHASE_U] = SetTIM1Channel1HighLeaveTime_us,
-	.SetPWM[PHASE_V] = SetTIM1Channel2HighLeaveTime_us,
-	.SetPWM[PHASE_W] = SetTIM1Channel3HighLeaveTime_us,
-	.SetPWM[INT] = SetTIM1Channel4HighLeaveTime_us,
-	.private = NULL
+	.init 				= Motor_Init,
+	.enable 			= TimerxChannel4ITEnable,
+	.SetPWM[PHASE_U] 	= SetTIM1Channel1HighLeaveTime_us,
+	.SetPWM[PHASE_V] 	= SetTIM1Channel2HighLeaveTime_us,
+	.SetPWM[PHASE_W] 	= SetTIM1Channel3HighLeaveTime_us,
+	.SetPWM[PHASE_INT] 	= SetTIM1Channel4HighLeaveTime_us,
 };
 
-static uint16_t getADCSampleValueU(void *private)
+static uint16_t getADCSampleValueU(void *priv)
 {
-	return (uint16_t)HAL_ADCEx_InjectedGetValue((ADC_HandleTypeDef *)private,ADC_INJECTED_RANK_1);
+	return (uint16_t)HAL_ADCEx_InjectedGetValue((ADC_HandleTypeDef *)priv,ADC_INJECTED_RANK_1);
 }
 
-static uint16_t getADCSampleValueV(void *private)
+static uint16_t getADCSampleValueV(void *priv)
 {
-	return (uint16_t)HAL_ADCEx_InjectedGetValue((ADC_HandleTypeDef *)private,ADC_INJECTED_RANK_2);
+	return (uint16_t)HAL_ADCEx_InjectedGetValue((ADC_HandleTypeDef *)priv,ADC_INJECTED_RANK_2);
 }
 
-static uint16_t getADCSampleValueW(void *private)
+static uint16_t getADCSampleValueW(void *priv)
 {
-	return (uint16_t)HAL_ADCEx_InjectedGetValue((ADC_HandleTypeDef *)private,ADC_INJECTED_RANK_3);
+	return (uint16_t)HAL_ADCEx_InjectedGetValue((ADC_HandleTypeDef *)priv,ADC_INJECTED_RANK_3);
 }
 
-static void Motor_Adc_Init(void *private)
+static void Motor_Adc_Init(void *priv)
 {
-	HAL_ADCEx_Calibration_Start((ADC_HandleTypeDef *)private, ADC_SINGLE_ENDED);
-  	HAL_ADCEx_InjectedStart_IT((ADC_HandleTypeDef *)private);
+	HAL_ADCEx_Calibration_Start((ADC_HandleTypeDef *)priv, ADC_SINGLE_ENDED);
+  	HAL_ADCEx_InjectedStart_IT((ADC_HandleTypeDef *)priv);
 }
 
-static const ADC_Info adcDefaultCfg = 
+static const ADC_t adcDefaultCfg = 
 {
-	.adcRefVolt = 3.4,
-	.amplifier = 11,
-	.mOhm = 50,
-	.getADCSample[0] = getADCSampleValueU,
-	.getADCSample[1] = getADCSampleValueV,
-	.getADCSample[2] = getADCSampleValueW,
-	.ADC_Init = Motor_Adc_Init,
+	.ADC_Init 			= Motor_Adc_Init,
+	.getADCSample[0] 	= getADCSampleValueU,
+	.getADCSample[1] 	= getADCSampleValueV,
+	.getADCSample[2] 	= getADCSampleValueW,
+	.adcRefVolt 		= 3.4,
+	.amplifier 			= 11,
+	.mOhm 				= 50,
 };
 
-pFOC_Info motor_init(TIM_HandleTypeDef *htim, ADC_HandleTypeDef *hadc)
+FOC_t *motor_init(TIM_HandleTypeDef *htim, ADC_HandleTypeDef *hadc)
 {
-	PWM_Opt *p_opts = malloc(sizeof(PWM_Opt));
-	if(p_opts == NULL)
-	{
-		goto pwm_malloc_error;
-	}
-	*p_opts = pwmOptDefault;
-	p_opts->private = htim;
+	Svpwm_t *pSvpwm = Svpwm_init((PWM_Opt*)&pwmOptDefault, htim);
+    if(!pSvpwm)
+    {
+        goto Svpwm_init_error;
+    }
 
-	ADC_Info *ADC_opts = malloc(sizeof(ADC_Info));
-	if(ADC_opts == NULL)
+	ADC_t *pADC = malloc(sizeof(ADC_t));
+	if(pADC == NULL)
 	{
 		goto adc_malloc_error;
 	}
-	*ADC_opts = adcDefaultCfg;
-	ADC_opts->private = hadc;
+	*pADC = adcDefaultCfg;
+	pADC->priv = hadc;
 
-	pFOC_Info foc = malloc(sizeof(FOC_Info));
-	if(foc == NULL)
+	FOC_t *pFOC = malloc(sizeof(FOC_t));
+	if(pFOC == NULL)
 	{
 		goto foc_malloc_error;
 	}
-	*foc = FocDefault;
+	*pFOC = FocDefault;
 
-	if(!FOC_init(foc, p_opts, ADC_opts))
+	if(!FOC_init(pFOC, pSvpwm, pADC))
 	{
 		goto foc_init_error;
 	}
-	p_opts->init(p_opts->private);
-	ADC_opts->ADC_Init(ADC_opts->private);
-	return foc;
+
+	for(uint8_t dim1 = 0; dim1 < PRINTF_BUF_NUM; dim1++)
+    {
+        for(uint8_t dim2 = 0; dim2 < PRINTF_BUF_NUM; dim2++)
+        {
+            param_buff[dim1][dim2] = default_param;
+        }
+    }
+	
+	return pFOC;
 
 foc_init_error:
+	free(pFOC);
 foc_malloc_error:
-	free(ADC_opts);
+	free(pADC);
 adc_malloc_error:
-	free(p_opts);
-pwm_malloc_error:
+	free(pSvpwm);
+Svpwm_init_error:
+
 	return NULL;
 }
 

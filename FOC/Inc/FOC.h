@@ -22,15 +22,15 @@ struct PI_Struct
 
 typedef struct
 {
-    void *private;
-    void (*ADC_Init)(void*);
-    uint16_t (*getADCSample[3])(void*);
+    void *priv;
+    void (*ADC_Init)(void *priv);
+    uint16_t (*getADCSample[3])(void *priv);
     float amplifier;
     float adcRefVolt;
     uint32_t offset[3];
     uint16_t averageCnt;
     uint8_t mOhm;
-} ADC_Info;
+} ADC_t;
 
 typedef struct
 {
@@ -58,16 +58,16 @@ typedef struct
     struct PI_Struct idPID;
     struct PI_Struct iqPID;
 
-    pSvpwm_Info Svpwm;
-    ADC_Info *adc;
+    Svpwm_t *pSvpwm;
+    ADC_t *pADC;
     void (*EnableMotor)(void *this, bool);
     float (*GetEncoderAngle)(void *this);
     void (*GetPreCurrent)(void *this);
-} FOC_Info;
-typedef FOC_Info* pFOC_Info;
+} FOC_t;
+typedef FOC_t* pFOC_Info;
 
-bool FOC_init(pFOC_Info pFOC, PWM_Opt *opts, ADC_Info *adcOpts);
-void FocControl(pFOC_Info pFOC);
+bool FOC_init(FOC_t *pFOC, Svpwm_t *pSvpwm, ADC_t *pADC);
+void FocControl(FOC_t *pFOC);
 
 extern ADC_HandleTypeDef ADC_PORT;
 extern int16_t ADC_offset[2][RESIST_NUM];

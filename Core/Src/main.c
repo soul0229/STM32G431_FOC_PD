@@ -54,10 +54,10 @@
 /* USER CODE BEGIN PV */
 CORDIC_ConfigTypeDef sCordicConfig;
 uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len);
-pFOC_Info FOC_motor[4] = {NULL};
+FOC_t *FOC_motor[4] = {NULL};
 bool motor[4] = {0};
 uint8_t motor_n = 0;
-extern FocParam param;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -247,13 +247,14 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 
 void HAL_ADCEx_InjectedConvCpltCallback(ADC_HandleTypeDef *hadc)
 {
-    if(hadc == &hadc2)
+    if(hadc == FOC_motor[1]->pADC->priv)
     {
       FOC_motor[1]->GetPreCurrent(FOC_motor[1]);
+      FocControl(FOC_motor[1]);
       HAL_ADCEx_InjectedGetValue(&hadc2,ADC_INJECTED_RANK_4);
-      param.adc_value[0] = FOC_motor[1]->ia;
-      param.adc_value[1] = FOC_motor[1]->ib;
-      param.adc_value[2] = FOC_motor[1]->ic;
+      param->adc_value[0] = FOC_motor[1]->ia;
+      param->adc_value[1] = FOC_motor[1]->ib;
+      param->adc_value[2] = FOC_motor[1]->ic;
     }
 }
 
