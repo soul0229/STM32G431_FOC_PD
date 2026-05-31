@@ -1,27 +1,29 @@
 #ifndef __SVPWM_H__
 #define __SVPWM_H__
-#include "FocCommon.h"
-#include <stdint.h>
 
-enum
+#include <stdint.h>
+#include <stdbool.h>
+typedef enum
 {
     PHASE_U = 0,
     PHASE_V,
     PHASE_W,
     PHASE_INT,
     PHASE_MAX
-};
+} Phase_t;
 
 typedef enum
 {
-    SECTOR_1 = 1,
+    SECTOR_INVALID_0 = 0,
+    SECTOR_1,
     SECTOR_2,
     SECTOR_3,
     SECTOR_4,
     SECTOR_5,
     SECTOR_6,
+    SECTOR_INVALID_7,
     MAX_SECTOR
-} Sector;
+} Sector_t;
 
 typedef struct 
 {
@@ -38,7 +40,6 @@ typedef struct
     void (*VectorTime)(void *this);
     void (*Generate)(void *this);
     void (*SvpwmControl)(void *this);
-    Sector (*GetSector)(void *this);
 
     float udc;
     float u_alpha;
@@ -58,23 +59,22 @@ typedef struct
     int32_t ts;
     int32_t maxTs;
     int32_t adcTs;
-    Sector sector;
+    Sector_t sector;
+
+    uint16_t t_PWM[PHASE_MAX];
 } Svpwm_t;
 
 Svpwm_t *Svpwm_init(PWM_Opt *pPWM_opts, void *priv);
 void Svpwm_deinit(Svpwm_t *pSvpwm);
 
 typedef struct {
-	uint8_t header[1];
+	uint16_t header;
 	uint16_t PWM[PHASE_MAX];
     uint8_t HallA[3];
-    uint8_t HallB[3];
-    uint8_t Dirction[2];
-    int16_t adc_value[1];
+    uint8_t DIR;
+    int16_t adc_value[3];
     uint32_t angle;
-    int32_t value;
-    uint32_t speed;
-    uint8_t tail[1];
-} __attribute__((packed)) FocParam;
+    uint16_t tail;
+} FocParam;
 
 #endif /* Svpwm_h */

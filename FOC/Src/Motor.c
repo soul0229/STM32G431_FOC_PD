@@ -1,14 +1,4 @@
-#include "FOC.h"
-#include "Svpwm.h"
-#include <stdlib.h>
-#include <string.h>
-#include "main.h"
-#include "stdint.h"
-#include "stdbool.h"
-
-const FocParam default_param = {.header  = {0xaa},.tail = {0xcc}};
-FocParam param_buff[PRINTF_BUF_NUM][PRINTF_SUBBUF_NUM];
-FocParam *param = param_buff[0];
+#include "FocCommon.h"
 
 static const FOC_t FocDefault = {
 	.rNum 		= 3,
@@ -23,25 +13,25 @@ static const FOC_t FocDefault = {
 static void SetTIM1Channel1HighLeaveTime_us(void *priv, int16_t time)
 {
 	TIM_HandleTypeDef *htim = priv;
-    __HAL_TIM_SET_COMPARE(htim, PWM_CHANNEL1, time);
+    __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_1, time);
 }
 
 static void SetTIM1Channel2HighLeaveTime_us(void *priv, int16_t time)
 {
 	TIM_HandleTypeDef *htim = priv;
-    __HAL_TIM_SET_COMPARE(htim, PWM_CHANNEL2, time);
+    __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_2, time);
 }
 
 static void SetTIM1Channel3HighLeaveTime_us(void *priv, int16_t time)
 {
 	TIM_HandleTypeDef *htim = priv;
-    __HAL_TIM_SET_COMPARE(htim, PWM_CHANNEL3, time);
+    __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_3, time);
 }
 
 static void SetTIM1Channel4HighLeaveTime_us(void *priv, int16_t time)
 {
 	TIM_HandleTypeDef *htim = priv;
-    __HAL_TIM_SET_COMPARE(htim, PWM_CHANNEL4, time);
+    __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_4, time);
 }
 
 
@@ -50,27 +40,27 @@ static void TimerxChannel4ITEnable(void *priv, bool isEnable)
 	TIM_HandleTypeDef *htim = priv;
 	
     if(isEnable) {
-			HAL_TIM_PWM_Start(htim,PWM_CHANNEL1);
-			HAL_TIM_PWM_Start(htim,PWM_CHANNEL2);
-			HAL_TIM_PWM_Start(htim,PWM_CHANNEL3);
+			HAL_TIM_PWM_Start(htim,TIM_CHANNEL_1);
+			HAL_TIM_PWM_Start(htim,TIM_CHANNEL_2);
+			HAL_TIM_PWM_Start(htim,TIM_CHANNEL_3);
 
-			HAL_TIMEx_PWMN_Start(htim,PWM_CHANNEL1);
-			HAL_TIMEx_PWMN_Start(htim,PWM_CHANNEL2);
-			HAL_TIMEx_PWMN_Start(htim,PWM_CHANNEL3);
+			HAL_TIMEx_PWMN_Start(htim,TIM_CHANNEL_1);
+			HAL_TIMEx_PWMN_Start(htim,TIM_CHANNEL_2);
+			HAL_TIMEx_PWMN_Start(htim,TIM_CHANNEL_3);
 			
-			HAL_TIM_PWM_Start_IT(htim,PWM_CHANNEL4);
+			HAL_TIM_PWM_Start_IT(htim,TIM_CHANNEL_4);
 			HAL_TIM_Base_Start_IT(htim);
 
     } else {
-			HAL_TIM_PWM_Stop(htim,PWM_CHANNEL1);
-			HAL_TIM_PWM_Stop(htim,PWM_CHANNEL2);
-			HAL_TIM_PWM_Stop(htim,PWM_CHANNEL3);
+			HAL_TIM_PWM_Stop(htim,TIM_CHANNEL_1);
+			HAL_TIM_PWM_Stop(htim,TIM_CHANNEL_2);
+			HAL_TIM_PWM_Stop(htim,TIM_CHANNEL_3);
 
-			HAL_TIMEx_PWMN_Stop(htim,PWM_CHANNEL1);
-			HAL_TIMEx_PWMN_Stop(htim,PWM_CHANNEL2);
-			HAL_TIMEx_PWMN_Stop(htim,PWM_CHANNEL3);
+			HAL_TIMEx_PWMN_Stop(htim,TIM_CHANNEL_1);
+			HAL_TIMEx_PWMN_Stop(htim,TIM_CHANNEL_2);
+			HAL_TIMEx_PWMN_Stop(htim,TIM_CHANNEL_3);
 			
-			HAL_TIM_PWM_Stop_IT(htim,PWM_CHANNEL4);
+			HAL_TIM_PWM_Stop_IT(htim,TIM_CHANNEL_4);
 			HAL_TIM_Base_Stop_IT(htim);
     }
 }
@@ -82,7 +72,7 @@ static void Motor_Init(void *this)
 	pPWM->SetPWM[PHASE_U](pPWM->priv, 0);
 	pPWM->SetPWM[PHASE_V](pPWM->priv, 0);
 	pPWM->SetPWM[PHASE_W](pPWM->priv, 0);
-	pPWM->SetPWM[PHASE_INT](pPWM->priv, 2000);
+	pPWM->SetPWM[PHASE_INT](pPWM->priv, 4000);
 	pPWM->enable(pPWM->priv, false);
 }
 
@@ -155,14 +145,6 @@ FOC_t *motor_init(TIM_HandleTypeDef *htim, ADC_HandleTypeDef *hadc)
 	{
 		goto foc_init_error;
 	}
-
-	for(uint8_t dim1 = 0; dim1 < PRINTF_BUF_NUM; dim1++)
-    {
-        for(uint8_t dim2 = 0; dim2 < PRINTF_BUF_NUM; dim2++)
-        {
-            param_buff[dim1][dim2] = default_param;
-        }
-    }
 	
 	return pFOC;
 
@@ -177,7 +159,7 @@ Svpwm_init_error:
 	return NULL;
 }
 
-void get_adc_offset(pFOC_Info Foc)
+void get_adc_offset(FOC_t *pFoc)
 {
 	// HAL_ADCEx_InjectedGetValue(&hadc2,ADC_INJECTED_RANK_1);
 

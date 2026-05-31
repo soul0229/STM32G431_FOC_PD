@@ -251,10 +251,11 @@ void HAL_ADCEx_InjectedConvCpltCallback(ADC_HandleTypeDef *hadc)
     {
       FOC_motor[1]->GetPreCurrent(FOC_motor[1]);
       FocControl(FOC_motor[1]);
-      HAL_ADCEx_InjectedGetValue(&hadc2,ADC_INJECTED_RANK_4);
-      param->adc_value[0] = FOC_motor[1]->ia;
-      param->adc_value[1] = FOC_motor[1]->ib;
-      param->adc_value[2] = FOC_motor[1]->ic;
+      // HAL_ADCEx_InjectedGetValue(&hadc2,ADC_INJECTED_RANK_4);
+      // param->adc_value[0] = FOC_motor[1]->ia;
+      // param->adc_value[1] = FOC_motor[1]->ib;
+      // param->adc_value[2] = FOC_motor[1]->ic;
+
     }
 }
 

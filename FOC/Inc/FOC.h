@@ -1,11 +1,11 @@
 #ifndef __FOC_H__
 #define __FOC_H__
 
-#include "FocCommon.h"
+#include "stm32g4xx_hal_flash.h"
 #include "Svpwm.h"
+#include "Sensor.h"
 #include <stdint.h>
 
-extern volatile uint32_t gFoc_TimeCNT;
 struct PI_Struct
 {
     float kp;
@@ -60,17 +60,19 @@ typedef struct
 
     Svpwm_t *pSvpwm;
     ADC_t *pADC;
+    Sensor_t *pSensor;
     void (*EnableMotor)(void *this, bool);
     float (*GetEncoderAngle)(void *this);
     void (*GetPreCurrent)(void *this);
 } FOC_t;
-typedef FOC_t* pFOC_Info;
+
+extern volatile uint32_t gFoc_TimeCNT;
 
 bool FOC_init(FOC_t *pFOC, Svpwm_t *pSvpwm, ADC_t *pADC);
 void FocControl(FOC_t *pFOC);
 
 extern ADC_HandleTypeDef ADC_PORT;
-extern int16_t ADC_offset[2][RESIST_NUM];
+// extern int16_t ADC_offset[2][RESIST_NUM];
 extern int16_t *ADC_Point;
 
 #endif /* FOC_h */

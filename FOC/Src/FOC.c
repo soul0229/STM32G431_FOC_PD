@@ -1,15 +1,16 @@
-#include "FOC.h"
-#include "stm32g4xx_hal_flash.h"
-#include <stdbool.h>
-#include <arm_math.h>
-#include <math.h>
-#include <stdint.h>
+#include "FocCommon.h"
+
 #define FOC_ANGLE_TO_RADIN      0.01745f
 #define M_OUTMAX                9.0f * 0.577f
 #define M_KP                    0.0008f
 #define M_KI                    0.0004f
 #define M_KD                    0.0f
 
+extern UART_HandleTypeDef huart1;
+const FocParam default_param = {.header  = 0x55aa,.tail = 0xaa55};
+FocParam param_buff[PRINTF_BUF_NUM * PRINTF_SUBBUF_NUM];
+FocParam *param = param_buff;
+uint32_t counter = 0;
 
 // FOC_data FOCdata = DATA_TX_INIT;
 // int16_t lastAdcData[RESIST_NUM] = {0, 0, 0};
@@ -209,43 +210,44 @@ static void CurrentReconstruction(FOC_t *pFOC)
 	if (pFOC->rNum < 3) {
         return;
     }
-    switch (pSvpwm->GetSector(pSvpwm)) {
-        case 1:
-            pFOC->ia =0.0f - pFOC->ib - pFOC->ic;
+    switch (pSvpwm->sector) 
+    {
+        case SECTOR_1:
+            pFOC->ia = 0.0f - pFOC->ib - pFOC->ic;
             break;
-        case 2:
-            pFOC->ib =0.0f - pFOC->ia - pFOC->ic;
+        case SECTOR_2:
+            pFOC->ib = 0.0f - pFOC->ia - pFOC->ic;
             break;
-        case 3:
-            pFOC->ib =0.0f - pFOC->ia - pFOC->ic;
+        case SECTOR_3:
+            pFOC->ib = 0.0f - pFOC->ia - pFOC->ic;
             break;
-        case 4:
-            pFOC->ic =0.0f - pFOC->ia - pFOC->ib;
+        case SECTOR_4:
+            pFOC->ic = 0.0f - pFOC->ia - pFOC->ib;
             break;
-        case 5:
-            pFOC->ic =0.0f - pFOC->ia - pFOC->ib;
+        case SECTOR_5:
+            pFOC->ic = 0.0f - pFOC->ia - pFOC->ib;
             break;
-        case 6:
-            pFOC->ia =0.0f - pFOC->ib - pFOC->ic;
+        case SECTOR_6:
+            pFOC->ia = 0.0f - pFOC->ib - pFOC->ic;
             break;
         default:
             break;
     }
 }
 
-static void ClarkeTransform(pFOC_Info pFOC)
+static void ClarkeTransform(FOC_t *pFOC)
 {
     pFOC->iAlpha = pFOC->ia;
     pFOC->iBeta = (pFOC->ia + 2.0f * pFOC->ib) / FLOAT_SQRT3;
 }
 
-static void ParkTransform(pFOC_Info pFOC)
+static void ParkTransform(FOC_t *pFOC)
 {
     pFOC->id = pFOC->iAlpha * (float)arm_cos_q15(pFOC->radian)  + pFOC->iBeta * (float)arm_sin_q15(pFOC->radian);
     pFOC->iq = -pFOC->iAlpha * (float)arm_sin_q15(pFOC->radian)  + pFOC->iBeta * (float)arm_cos_q15(pFOC->radian);
 }
 
-static void ParkAntiTransform(pFOC_Info pFOC)
+static void ParkAntiTransform(FOC_t *pFOC)
 {
     Svpwm_t *pSvpwm = pFOC->pSvpwm;
     pSvpwm->u_alpha = pFOC->iAlphaSVPWM = pFOC->idPID.out * (float)arm_cos_q15(pFOC->radian) / (uint16_t)32768  - pFOC->iqPID.out * (float)arm_sin_q15(pFOC->radian) / (uint16_t)32768;
@@ -256,31 +258,36 @@ static void ADCGetPreCurrent(void *this)
 {
     FOC_t *pFOC = this;
     ADC_t *pADC = pFOC->pADC;
-    pFOC->ia = pADC->getADCSample[0](pADC->priv);
-    pFOC->ib = pADC->getADCSample[1](pADC->priv);
-    pFOC->ic = pADC->getADCSample[2](pADC->priv);
-    if(pADC->averageCnt < 5000)
-    {
-        pADC->offset[0] += pFOC->ia;
-        pADC->offset[1] += pFOC->ib;
-        pADC->offset[2] += pFOC->ic;
-        pADC->averageCnt++;
-        if(pADC->averageCnt == 5000)
-        {
-            pADC->offset[0] /= 5000;
-            pADC->offset[1] /= 5000;
-            pADC->offset[2] /= 5000;
-            pFOC->isEnable = true;
-            pFOC->iqPID.out = 1;
-        }
-        return;
-    }
+    // ADC_t *pADC = pFOC->pADC;
+    // pFOC->ia = pADC->getADCSample[0](pADC->priv);
+    // pFOC->ib = pADC->getADCSample[1](pADC->priv);
+    // pFOC->ic = pADC->getADCSample[2](pADC->priv);
+    param->adc_value[0] = pADC->getADCSample[0](pADC->priv);
+    param->adc_value[1] = pADC->getADCSample[1](pADC->priv);
+    param->adc_value[2] = pADC->getADCSample[2](pADC->priv);
+    // if(pADC->averageCnt < 5000)
+    // {
+    //     pADC->offset[0] += pFOC->ia;
+    //     pADC->offset[1] += pFOC->ib;
+    //     pADC->offset[2] += pFOC->ic;
+    //     pADC->averageCnt++;
+    //     if(pADC->averageCnt == 5000)
+    //     {
+    //         pADC->offset[0] /= 5000;
+    //         pADC->offset[1] /= 5000;
+    //         pADC->offset[2] /= 5000;
+            // pFOC->isEnable = true;
+            pFOC->iqPID.out = 4;
+    //     }
+    //     return;
+    // }
     // pFOC->ia = pFOC->ia - adc_opts->offset[0];
     // pFOC->ib = pFOC->ib - adc_opts->offset[1];
     // pFOC->ic = pFOC->ic - adc_opts->offset[2];
-    pFOC->ia = LPF_SingleUpdate(&filter_ADC, pFOC->ia - pADC->offset[0], 0);
-    pFOC->ib = LPF_SingleUpdate(&filter_ADC, pFOC->ib - pADC->offset[1], 1);
-    pFOC->ic = LPF_SingleUpdate(&filter_ADC, pFOC->ic - pADC->offset[2], 2);
+    param->adc_value[0] = LPF_SingleUpdate(&filter_ADC, param->adc_value[0], 0);
+    param->adc_value[1] = LPF_SingleUpdate(&filter_ADC, param->adc_value[1], 1);
+    param->adc_value[2] = LPF_SingleUpdate(&filter_ADC, param->adc_value[2], 2);
+ 
 }
 
 static void MotorEnable(void *this, bool enable)
@@ -305,6 +312,12 @@ bool FOC_init(FOC_t *pFOC, Svpwm_t *pSvpwm, ADC_t *pADC)
 	pADC->ADC_Init(pADC->priv);
 
     LPF_Init(&filter_ADC, 200, 20000);
+
+    for(uint16_t cnt = 0; cnt < PRINTF_BUF_NUM * PRINTF_SUBBUF_NUM; cnt++)
+    {
+        param_buff[cnt] = default_param;
+    }
+
     return true;
 }
 
@@ -319,13 +332,20 @@ void FocControl(FOC_t *pFOC)
     Svpwm_t *pSvpwm = pFOC->pSvpwm;
     // if(pFOC->isEnable)
     // {
-        pFOC->radian = ((uint16_t)(pFOC->radian+32))%(uint16_t)32768;
+        pFOC->radian = ((uint16_t)(pFOC->radian+32))&0x7fff;
+        param->angle = pFOC->radian;
     // }
     // ClarkeTransform(pFOC);
     // param.adc_value[0] = atan2f(pFOC->iBeta, pFOC->iAlpha)/PI*32768;
     ParkAntiTransform(pFOC);
     pSvpwm->SvpwmControl(pSvpwm);
-    
+
+    // memcpy(param->PWM, pSvpwm->t_PWM, sizeof(pSvpwm->t_PWM));
+    if((counter&PRINTF_SUBBUF_MASK) == (PRINTF_SUBBUF_MASK))
+    {
+        HAL_UART_Transmit_DMA(&huart1, (uint8_t*)(param - PRINTF_SUBBUF_MASK), sizeof(FocParam) * PRINTF_SUBBUF_NUM);
+    }
+    param = &param_buff[++counter & PRINTF_TOTAL_MASK];
 }
 
 

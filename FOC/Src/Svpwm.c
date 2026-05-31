@@ -1,15 +1,10 @@
-#include "Svpwm.h"
-#include <stdint.h>
-#include <string.h>
-#include "tim.h"
-#include "usart.h"
-#include <stdbool.h>
-#include <stdlib.h>
+#include "FocCommon.h"
+extern FocParam *param;
 
 static void SvpwmSectorJudgment(void *this)
 {
     Svpwm_t *pSvpwm = this;
-    const uint8_t sector_judg[8] = {0, 2, 6, 1, 4, 3, 5, 0};
+    const uint8_t sector_judg[8] = {0, SECTOR_2, SECTOR_6, SECTOR_1, SECTOR_4, SECTOR_3, SECTOR_5, 0};
     uint8_t a = 0;
     uint8_t b = 0;
     uint8_t c = 0;
@@ -45,7 +40,8 @@ static void GetVectorDuration(void *this)
 	int32_t ts = pSvpwm->ts;
 	float udc = pSvpwm->udc;
 
-    switch (pSvpwm->sector) {
+    switch (pSvpwm->sector) 
+    {
         case SECTOR_1:
             pSvpwm->t4 = FLOAT_SQRT3_2 * ts * pSvpwm->u2 / udc;
             pSvpwm->t6 = FLOAT_SQRT3_2 * ts * pSvpwm->u1 / udc;
@@ -84,49 +80,45 @@ extern TIM_HandleTypeDef htim8;
 static void SvpwmGenerate(void *this)
 {
     Svpwm_t *pSvpwm = this;
-	uint16_t t[PHASE_MAX] = {0};
-    switch (pSvpwm->sector) {
+	uint16_t *t_PWM = param->PWM;
+    switch (pSvpwm->sector) 
+    {
         case SECTOR_1:
-            t[PHASE_U] = pSvpwm->t4 + pSvpwm->t6 + pSvpwm->t7;
-            t[PHASE_V] = pSvpwm->t6 + pSvpwm->t7;
-            t[PHASE_W] = pSvpwm->t7;
+            t_PWM[PHASE_U] = pSvpwm->t4 + pSvpwm->t6 + pSvpwm->t7;
+            t_PWM[PHASE_V] = pSvpwm->t6 + pSvpwm->t7;
+            t_PWM[PHASE_W] = pSvpwm->t7;
             break;
         case SECTOR_2:
-            t[PHASE_U] = pSvpwm->t6 + pSvpwm->t7;
-            t[PHASE_V] = pSvpwm->t2 + pSvpwm->t6 + pSvpwm->t7;
-            t[PHASE_W] = pSvpwm->t7;
+            t_PWM[PHASE_U] = pSvpwm->t6 + pSvpwm->t7;
+            t_PWM[PHASE_V] = pSvpwm->t2 + pSvpwm->t6 + pSvpwm->t7;
+            t_PWM[PHASE_W] = pSvpwm->t7;
             break;
         case SECTOR_3:
-            t[PHASE_U] = pSvpwm->t7;
-            t[PHASE_V] = pSvpwm->t2 + pSvpwm->t3 + pSvpwm->t7;
-            t[PHASE_W] = pSvpwm->t3 + pSvpwm->t7;
+            t_PWM[PHASE_U] = pSvpwm->t7;
+            t_PWM[PHASE_V] = pSvpwm->t2 + pSvpwm->t3 + pSvpwm->t7;
+            t_PWM[PHASE_W] = pSvpwm->t3 + pSvpwm->t7;
             break;
         case SECTOR_4:
-            t[PHASE_U] = pSvpwm->t7;
-            t[PHASE_V] = pSvpwm->t3 + pSvpwm->t7;
-            t[PHASE_W] = pSvpwm->t1 + pSvpwm->t3 + pSvpwm->t7;
+            t_PWM[PHASE_U] = pSvpwm->t7;
+            t_PWM[PHASE_V] = pSvpwm->t3 + pSvpwm->t7;
+            t_PWM[PHASE_W] = pSvpwm->t1 + pSvpwm->t3 + pSvpwm->t7;
             break;
         case SECTOR_5:
-            t[PHASE_U] = pSvpwm->t5 + pSvpwm->t7;
-            t[PHASE_V] = pSvpwm->t7;
-            t[PHASE_W] = pSvpwm->t1 + pSvpwm->t5 + pSvpwm->t7;
+            t_PWM[PHASE_U] = pSvpwm->t5 + pSvpwm->t7;
+            t_PWM[PHASE_V] = pSvpwm->t7;
+            t_PWM[PHASE_W] = pSvpwm->t1 + pSvpwm->t5 + pSvpwm->t7;
             break;
         case SECTOR_6:
-            t[PHASE_U] = pSvpwm->t4 + pSvpwm->t5 + pSvpwm->t7;
-            t[PHASE_V] = pSvpwm->t7;
-            t[PHASE_W] = pSvpwm->t5 + pSvpwm->t7;
+            t_PWM[PHASE_U] = pSvpwm->t4 + pSvpwm->t5 + pSvpwm->t7;
+            t_PWM[PHASE_V] = pSvpwm->t7;
+            t_PWM[PHASE_W] = pSvpwm->t5 + pSvpwm->t7;
             break;
+        default: return;
     }
 
-    pSvpwm->pwm_opts.SetPWM[PHASE_U](pSvpwm->pwm_opts.priv, t[PHASE_U]);
-    pSvpwm->pwm_opts.SetPWM[PHASE_V](pSvpwm->pwm_opts.priv, t[PHASE_V]);
-    pSvpwm->pwm_opts.SetPWM[PHASE_W](pSvpwm->pwm_opts.priv, t[PHASE_W]);
-}
-
-static Sector GetSVPWMSector(void *this)
-{
-    Svpwm_t *pSvpwm = this;
-    return pSvpwm->sector;
+    pSvpwm->pwm_opts.SetPWM[PHASE_U](pSvpwm->pwm_opts.priv, t_PWM[PHASE_U]);
+    pSvpwm->pwm_opts.SetPWM[PHASE_V](pSvpwm->pwm_opts.priv, t_PWM[PHASE_V]);
+    pSvpwm->pwm_opts.SetPWM[PHASE_W](pSvpwm->pwm_opts.priv, t_PWM[PHASE_W]);
 }
 
 static void SvpwmControl(void *this)
@@ -140,7 +132,6 @@ static void SvpwmControl(void *this)
 static const Svpwm_t defaultSvpwm = 
 {
     .Generate = SvpwmGenerate,
-    .GetSector = GetSVPWMSector,
     .SectorJudgment = SvpwmSectorJudgment,
     .VectorTime = GetVectorDuration,
     .SvpwmControl = SvpwmControl

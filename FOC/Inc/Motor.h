@@ -2,7 +2,7 @@
 #define __MOTOR_H__
 
 #include "FocCommon.h"
-#include "FOC.h"
+
 
 extern FocParam *param;
 
