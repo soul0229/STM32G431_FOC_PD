@@ -84,6 +84,7 @@ FOC/Src/Svpwm.c \
 FOC/Src/TIMxPWM.c \
 FOC/Src/Motor.c \
 FOC/Src/Sensor.c \
+FOC/Src/RsSamp.c \
 FOC/Sensor/ThreePhaseHall.c \
 Core/Src/dma.c \
 Core/Src/sysmem.c \

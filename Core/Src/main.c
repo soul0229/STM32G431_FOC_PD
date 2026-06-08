@@ -128,12 +128,22 @@ int main(void)
     Error_Handler();
   }
 
+  uint16_t delay1[4] = {100, 100, 100, 100};
+  uint8_t cnt = 0;
   // FOC_motor[0] = motor_init(&htim1);
   FOC_motor[1] = motor_init(&htim8, &hadc2);
+    while (FOC_motor[1] == NULL)
+  {
+    HAL_Delay(delay1[cnt++%4]);
+    HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+    /* USER CODE END WHILE */
+
+    /* USER CODE BEGIN 3 */
+  }
   // HAL_TIMEx_HallSensor_Start_IT(&htim2);
   // HAL_TIMEx_HallSensor_Start_IT(&htim3);
   uint16_t delay[4] = {100, 100, 100, 700};
-  uint8_t cnt = 0;
+  
   // HAL_CORDIC_Calculate_DMA();
   /* USER CODE END 2 */
 
@@ -247,9 +257,9 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 
 void HAL_ADCEx_InjectedConvCpltCallback(ADC_HandleTypeDef *hadc)
 {
-    if(hadc == FOC_motor[1]->pADC->priv)
+    if(hadc == FOC_motor[1]->pRsSamp->priv)
     {
-      FOC_motor[1]->GetPreCurrent(FOC_motor[1]);
+      // FOC_motor[1]->GetPreCurrent(FOC_motor[1]);
       FocControl(FOC_motor[1]);
       // HAL_ADCEx_InjectedGetValue(&hadc2,ADC_INJECTED_RANK_4);
       // param->adc_value[0] = FOC_motor[1]->ia;

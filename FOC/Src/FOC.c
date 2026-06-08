@@ -168,39 +168,6 @@ uint32_t counter = 0;
 // 	HAL_ADC_Start_DMA(&ADC_PORT, (uint32_t *)ADC_offset, RESIST_NUM);
 // }
 
-typedef struct {
-    float alpha;
-    float cutoff_freq;
-    float sample_freq;
-    int16_t prev_value[3];
-} LPF_3Phase;
-LPF_3Phase filter_ADC;
-void LPF_Init(LPF_3Phase* filter, float cutoff_freq, float sample_freq) {
-    filter->cutoff_freq = cutoff_freq;
-    filter->sample_freq = sample_freq;
-
-    float RC = 1.0f / (2.0f * 3.1415926535f * cutoff_freq);
-    float Ts = 1.0f / sample_freq;
-    filter->alpha = Ts / (Ts + RC);
-    
-    for (int i = 0; i < 3; i++) {
-        filter->prev_value[i] = 0;
-    }
-}
-
-
-int16_t LPF_SingleUpdate(LPF_3Phase* filter, int16_t input, int16_t phase) {
-    int16_t output = filter->alpha * input + (1.0f - filter->alpha) * filter->prev_value[phase];
-    filter->prev_value[phase] = output;
-    return output;
-}
-
-
-void LPF_3PhaseUpdate(LPF_3Phase* filter, int16_t input[3], int16_t output[3]) {
-    for (int i = 0; i < 3; i++) {
-        output[i] = LPF_SingleUpdate(filter, input[i], i);
-    }
-}
 
 
 static void CurrentReconstruction(FOC_t *pFOC)
@@ -254,64 +221,37 @@ static void ParkAntiTransform(FOC_t *pFOC)
     pSvpwm->u_beta = pFOC->iBetaSVPWM = pFOC->idPID.out * (float)arm_sin_q15(pFOC->radian) / (uint16_t)32768  + pFOC->iqPID.out * (float)arm_cos_q15(pFOC->radian) / (uint16_t)32768;
 }
 
-static void ADCGetPreCurrent(void *this)
-{
-    FOC_t *pFOC = this;
-    ADC_t *pADC = pFOC->pADC;
-    // ADC_t *pADC = pFOC->pADC;
-    // pFOC->ia = pADC->getADCSample[0](pADC->priv);
-    // pFOC->ib = pADC->getADCSample[1](pADC->priv);
-    // pFOC->ic = pADC->getADCSample[2](pADC->priv);
-    param->adc_value[0] = pADC->getADCSample[0](pADC->priv);
-    param->adc_value[1] = pADC->getADCSample[1](pADC->priv);
-    param->adc_value[2] = pADC->getADCSample[2](pADC->priv);
-    // if(pADC->averageCnt < 5000)
-    // {
-    //     pADC->offset[0] += pFOC->ia;
-    //     pADC->offset[1] += pFOC->ib;
-    //     pADC->offset[2] += pFOC->ic;
-    //     pADC->averageCnt++;
-    //     if(pADC->averageCnt == 5000)
-    //     {
-    //         pADC->offset[0] /= 5000;
-    //         pADC->offset[1] /= 5000;
-    //         pADC->offset[2] /= 5000;
-            // pFOC->isEnable = true;
-            pFOC->iqPID.out = 4;
-    //     }
-    //     return;
-    // }
-    // pFOC->ia = pFOC->ia - adc_opts->offset[0];
-    // pFOC->ib = pFOC->ib - adc_opts->offset[1];
-    // pFOC->ic = pFOC->ic - adc_opts->offset[2];
-    param->adc_value[0] = LPF_SingleUpdate(&filter_ADC, param->adc_value[0], 0);
-    param->adc_value[1] = LPF_SingleUpdate(&filter_ADC, param->adc_value[1], 1);
-    param->adc_value[2] = LPF_SingleUpdate(&filter_ADC, param->adc_value[2], 2);
- 
-}
-
 static void MotorEnable(void *this, bool enable)
 {
     PWM_Opt *pPWM =  &((FOC_t*)this)->pSvpwm->pwm_opts;
     pPWM->enable(pPWM->priv, enable);
 }
 
-bool FOC_init(FOC_t *pFOC, Svpwm_t *pSvpwm, ADC_t *pADC)
+bool FOC_init(FOC_t *pFOC)
 {
-    if(pFOC == NULL || pSvpwm == NULL || pADC == NULL)
+    if(pFOC == NULL)
     {
         return false;
     }
 
-    pFOC->pSvpwm = pSvpwm;
-    pFOC->pADC = pADC;
-    pFOC->GetPreCurrent = ADCGetPreCurrent;
-    pFOC->EnableMotor = MotorEnable;
-    
-    pSvpwm->pwm_opts.init(pSvpwm);
-	pADC->ADC_Init(pADC->priv);
+    if(!pFOC->pSvpwm || !pFOC->pRsSamp)
+    {
+        return false;
+    }
+    // pFOC->GetPreCurrent = ADCGetPreCurrent;
+    pFOC->rNum = 3;
+    pFOC->idPID.kp = 0.0008f;
+    pFOC->idPID.ki = 0.0004f;
 
-    LPF_Init(&filter_ADC, 200, 20000);
+    pFOC->iqPID.kp = 0.0008f;
+    pFOC->iqPID.ki = 0.0004f;
+    pFOC->iqPID.out = 1;
+
+    pFOC->EnableMotor = MotorEnable;
+    pFOC->pSvpwm->pwm_opts.init(pFOC->pSvpwm);
+    pFOC->pRsSamp->init(pFOC->pRsSamp->priv);
+    
+    // LPF_Init(&filter_ADC, 200, 20000);
 
     for(uint16_t cnt = 0; cnt < PRINTF_BUF_NUM * PRINTF_SUBBUF_NUM; cnt++)
     {
@@ -328,7 +268,6 @@ void FocControl(FOC_t *pFOC)
         return;
     }
     
-
     Svpwm_t *pSvpwm = pFOC->pSvpwm;
     // if(pFOC->isEnable)
     // {
@@ -338,7 +277,10 @@ void FocControl(FOC_t *pFOC)
     // ClarkeTransform(pFOC);
     // param.adc_value[0] = atan2f(pFOC->iBeta, pFOC->iAlpha)/PI*32768;
     ParkAntiTransform(pFOC);
-    pSvpwm->SvpwmControl(pSvpwm);
+    
+    pSvpwm->SectorJudgment(pSvpwm);
+    pSvpwm->VectorTime(pSvpwm);
+    pSvpwm->Generate(pSvpwm);
 
     // memcpy(param->PWM, pSvpwm->t_PWM, sizeof(pSvpwm->t_PWM));
     if((counter&PRINTF_SUBBUF_MASK) == (PRINTF_SUBBUF_MASK))

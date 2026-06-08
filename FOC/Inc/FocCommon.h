@@ -11,9 +11,11 @@
 #include "stm32g4xx_hal_flash.h"
 #include "arm_math.h"
 
-#include "FOC.h"
 #include "Sensor.h"
 #include "Svpwm.h"
+#include "RsSamp.h"
+#include "FOC.h"
+
 
 // #include "sincos.h"
 //#include "arm_math.h"
@@ -44,5 +46,19 @@
 #define PRINTF_SUBBUF_NUM       256
 #define PRINTF_SUBBUF_MASK      (PRINTF_SUBBUF_NUM - 1)
 #define PRINTF_TOTAL_MASK       (PRINTF_SUBBUF_NUM * PRINTF_BUF_NUM - 1)
+
+bool sensor_register(FOC_t *pFOC, Sensor_t *pSensor);
+bool sensor_unregister(FOC_t *pFOC);
+
+bool Svpwm_register(FOC_t *pFOC, PWM_Opt *pPWM_opts, void *priv);
+bool Svpwm_unregister(FOC_t *pFOC);
+
+bool RsSamp_register(FOC_t *pFOC, RsSamp_t *pRsSamp, void *priv);
+bool RsSamp_unregister(FOC_t *pFOC);
+
+bool FOC_init(FOC_t *pFOC);
+void FocControl(FOC_t *pFOC);
+extern FocParam *param;
+
 
 #endif

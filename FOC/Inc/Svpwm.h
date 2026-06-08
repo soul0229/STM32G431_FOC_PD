@@ -39,7 +39,6 @@ typedef struct
     void (*SectorJudgment)(void *this);
     void (*VectorTime)(void *this);
     void (*Generate)(void *this);
-    void (*SvpwmControl)(void *this);
 
     float udc;
     float u_alpha;

@@ -86,76 +86,71 @@ static const PWM_Opt pwmOptDefault =
 	.SetPWM[PHASE_INT] 	= SetTIM1Channel4HighLeaveTime_us,
 };
 
-static uint16_t getADCSampleValueU(void *priv)
+static uint16_t getRsSampleValueU(void *priv)
 {
 	return (uint16_t)HAL_ADCEx_InjectedGetValue((ADC_HandleTypeDef *)priv,ADC_INJECTED_RANK_1);
 }
 
-static uint16_t getADCSampleValueV(void *priv)
+static uint16_t getRsSampleValueV(void *priv)
 {
 	return (uint16_t)HAL_ADCEx_InjectedGetValue((ADC_HandleTypeDef *)priv,ADC_INJECTED_RANK_2);
 }
 
-static uint16_t getADCSampleValueW(void *priv)
+static uint16_t getRsSampleValueW(void *priv)
 {
 	return (uint16_t)HAL_ADCEx_InjectedGetValue((ADC_HandleTypeDef *)priv,ADC_INJECTED_RANK_3);
 }
 
-static void Motor_Adc_Init(void *priv)
+static void RsSampleADCInit(void *priv)
 {
 	HAL_ADCEx_Calibration_Start((ADC_HandleTypeDef *)priv, ADC_SINGLE_ENDED);
   	HAL_ADCEx_InjectedStart_IT((ADC_HandleTypeDef *)priv);
 }
 
-static const ADC_t adcDefaultCfg = 
+static const RsSamp_t RsSampDefaultCfg = 
 {
-	.ADC_Init 			= Motor_Adc_Init,
-	.getADCSample[0] 	= getADCSampleValueU,
-	.getADCSample[1] 	= getADCSampleValueV,
-	.getADCSample[2] 	= getADCSampleValueW,
-	.adcRefVolt 		= 3.4,
-	.amplifier 			= 11,
-	.mOhm 				= 50,
+	.init 						= RsSampleADCInit,
+	.getRsSample[RESISTOR_U] 	= getRsSampleValueU,
+	.getRsSample[RESISTOR_V] 	= getRsSampleValueV,
+	.getRsSample[RESISTOR_W] 	= getRsSampleValueW,
+	.sampRefVolt 				= 3.4,
+	.amplifier 					= 11,
+	.mOhm 						= 50,
 };
 
 FOC_t *motor_init(TIM_HandleTypeDef *htim, ADC_HandleTypeDef *hadc)
 {
-	Svpwm_t *pSvpwm = Svpwm_init((PWM_Opt*)&pwmOptDefault, htim);
-    if(!pSvpwm)
-    {
-        goto Svpwm_init_error;
-    }
-
-	ADC_t *pADC = malloc(sizeof(ADC_t));
-	if(pADC == NULL)
-	{
-		goto adc_malloc_error;
-	}
-	*pADC = adcDefaultCfg;
-	pADC->priv = hadc;
-
-	FOC_t *pFOC = malloc(sizeof(FOC_t));
+	
+	FOC_t *pFOC = (FOC_t*)malloc(sizeof(FOC_t));
 	if(pFOC == NULL)
 	{
-		goto foc_malloc_error;
+		goto pFOC_malloc_error;
 	}
-	*pFOC = FocDefault;
 
-	if(!FOC_init(pFOC, pSvpwm, pADC))
+	if(!Svpwm_register(pFOC, (PWM_Opt*)&pwmOptDefault, htim))
 	{
-		goto foc_init_error;
+		goto Svpwm_register_error;
 	}
-	
+
+	if(!RsSamp_register(pFOC, (RsSamp_t *)&RsSampDefaultCfg, hadc))
+	{
+		goto RsSamp_register_error;
+	}
+
+	if(!FOC_init(pFOC))
+	{
+		goto FOC_init_error;
+	}
+
 	return pFOC;
 
-foc_init_error:
+FOC_init_error:
+	RsSamp_unregister(pFOC);
+RsSamp_register_error:
+	Svpwm_unregister(pFOC);
+Svpwm_register_error:
 	free(pFOC);
-foc_malloc_error:
-	free(pADC);
-adc_malloc_error:
-	free(pSvpwm);
-Svpwm_init_error:
-
+pFOC_malloc_error:      
 	return NULL;
 }
 
@@ -163,12 +158,4 @@ void get_adc_offset(FOC_t *pFoc)
 {
 	// HAL_ADCEx_InjectedGetValue(&hadc2,ADC_INJECTED_RANK_1);
 
-}
-
-void set_pwm(void *p, int16_t timeu, int16_t timev, int16_t timew)
-{
-	TIM_HandleTypeDef *htim = p;
-	SetTIM1Channel1HighLeaveTime_us(htim, timeu);
-	SetTIM1Channel2HighLeaveTime_us(htim, timev);
-	SetTIM1Channel3HighLeaveTime_us(htim, timew);
 }

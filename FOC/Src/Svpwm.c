@@ -1,5 +1,5 @@
 #include "FocCommon.h"
-extern FocParam *param;
+#include <stdbool.h>
 
 static void SvpwmSectorJudgment(void *this)
 {
@@ -121,20 +121,11 @@ static void SvpwmGenerate(void *this)
     pSvpwm->pwm_opts.SetPWM[PHASE_W](pSvpwm->pwm_opts.priv, t_PWM[PHASE_W]);
 }
 
-static void SvpwmControl(void *this)
-{
-    Svpwm_t *pSvpwm = this;
-    pSvpwm->SectorJudgment(pSvpwm);
-    pSvpwm->VectorTime(pSvpwm);
-    pSvpwm->Generate(pSvpwm);
-}
-
 static const Svpwm_t defaultSvpwm = 
 {
-    .Generate = SvpwmGenerate,
     .SectorJudgment = SvpwmSectorJudgment,
-    .VectorTime = GetVectorDuration,
-    .SvpwmControl = SvpwmControl
+    .VectorTime     = GetVectorDuration,
+    .Generate       = SvpwmGenerate,
 };
 
 
@@ -154,40 +145,51 @@ static bool check_pwm_opts(PWM_Opt *opts, void *priv)
     return true;
 }
 
-Svpwm_t *Svpwm_init(PWM_Opt *pPWM_opts, void *priv)
+bool Svpwm_register(FOC_t *pFOC, PWM_Opt *pPWM_opts, void *priv)
 {
-    if(!check_pwm_opts(pPWM_opts, priv))
+    if(pFOC == NULL || pPWM_opts == NULL || priv == NULL)
     {
-        goto check_pwm_opts_error;
+        return false;
     }
 
-    Svpwm_t *pSvpwm = malloc(sizeof(Svpwm_t));
-    if(!pSvpwm)
+    if(pPWM_opts->enable == NULL || pPWM_opts->init == NULL)
     {
-        goto Svpwm_t_malloc_error;
+        return false;
     }
-    *pSvpwm = defaultSvpwm;
-    pSvpwm->udc = 5;
-    pSvpwm->ts = 4200;
 
-    pSvpwm->pwm_opts = *pPWM_opts;
-    pSvpwm->pwm_opts.priv = priv;
-    
-    return pSvpwm;
+    if(pPWM_opts->SetPWM[PHASE_U] == NULL || pPWM_opts->SetPWM[PHASE_V] == NULL || \
+        pPWM_opts->SetPWM[PHASE_W] == NULL || pPWM_opts->SetPWM[PHASE_INT] == NULL)
+    {
+        return false;
+    }
 
-Svpwm_t_malloc_error:
-check_pwm_opts_error:
+    pFOC->pSvpwm = (Svpwm_t*)malloc(sizeof(Svpwm_t));
+    if(pFOC->pSvpwm == NULL)
+    {
+        return false;
+    }
+    *pFOC->pSvpwm = defaultSvpwm;
+    pFOC->pSvpwm->udc = 5;
+    pFOC->pSvpwm->ts = 4200;
 
-    return NULL;
+    pFOC->pSvpwm->pwm_opts = *pPWM_opts;
+    pFOC->pSvpwm->pwm_opts.priv = priv;
+
+    return true;
 }
 
-void Svpwm_deinit(Svpwm_t *pSvpwm)
+bool Svpwm_unregister(FOC_t *pFOC)
 {
-    if(pSvpwm == NULL)
+    if(pFOC == NULL)
     {
-        return;
+        return false;
     }
-    free(pSvpwm);
+
+    if(pFOC->pSvpwm)
+    {
+        free(pFOC->pSvpwm);
+    }
+    return true;
 }
 
 
