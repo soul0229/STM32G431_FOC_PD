@@ -81,8 +81,8 @@ Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_ioreq.c \
 Middlewares/ST/STM32_USB_Device_Library/Class/CDC/Src/usbd_cdc.c \
 FOC/Src/FOC.c \
 FOC/Src/Svpwm.c \
-FOC/Src/TIMxPWM.c \
-FOC/Src/Motor.c \
+FOC/Src/SinCosTab.c \
+FOC/Motor.c \
 FOC/Src/Sensor.c \
 FOC/Src/RsSamp.c \
 FOC/Sensor/ThreePhaseHall.c \
@@ -158,6 +158,7 @@ C_INCLUDES =  \
 -IDrivers/CMSIS/Include \
 -IFOC/Inc \
 -IFOC/Sensor \
+-IFOC \
 -IMiddlewares/ST/ARM/DSP/Inc
 
 

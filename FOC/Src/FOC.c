@@ -1,4 +1,5 @@
 #include "FocCommon.h"
+#include "arm_math.h"
 
 #define FOC_ANGLE_TO_RADIN      0.01745f
 #define M_OUTMAX                9.0f * 0.577f
@@ -202,6 +203,7 @@ static void CurrentReconstruction(FOC_t *pFOC)
     }
 }
 
+void sin_cos_4096(uint16_t angle, float32_t *sine, float32_t *cosine);
 static void ClarkeTransform(FOC_t *pFOC)
 {
     pFOC->iAlpha = pFOC->ia;
@@ -210,20 +212,25 @@ static void ClarkeTransform(FOC_t *pFOC)
 
 static void ParkTransform(FOC_t *pFOC)
 {
-    pFOC->id = pFOC->iAlpha * (float)arm_cos_q15(pFOC->radian)  + pFOC->iBeta * (float)arm_sin_q15(pFOC->radian);
-    pFOC->iq = -pFOC->iAlpha * (float)arm_sin_q15(pFOC->radian)  + pFOC->iBeta * (float)arm_cos_q15(pFOC->radian);
+    float32_t sine, cosine;
+    sin_cos_4096(pFOC->radian, &sine, &cosine);
+    pFOC->id = pFOC->iAlpha * cosine  + pFOC->iBeta * sine;
+    pFOC->iq = -pFOC->iAlpha * sine  + pFOC->iBeta * cosine;
 }
 
 static void ParkAntiTransform(FOC_t *pFOC)
 {
     Svpwm_t *pSvpwm = pFOC->pSvpwm;
-    pSvpwm->u_alpha = pFOC->iAlphaSVPWM = pFOC->idPID.out * (float)arm_cos_q15(pFOC->radian) / (uint16_t)32768  - pFOC->iqPID.out * (float)arm_sin_q15(pFOC->radian) / (uint16_t)32768;
-    pSvpwm->u_beta = pFOC->iBetaSVPWM = pFOC->idPID.out * (float)arm_sin_q15(pFOC->radian) / (uint16_t)32768  + pFOC->iqPID.out * (float)arm_cos_q15(pFOC->radian) / (uint16_t)32768;
+    float32_t sine, cosine;
+    sin_cos_4096(pFOC->radian, &sine, &cosine);
+    pSvpwm->u_alpha = pFOC->iAlphaSVPWM = pFOC->idPID.out * cosine  - pFOC->iqPID.out * sine;
+    pSvpwm->u_beta = pFOC->iBetaSVPWM = pFOC->idPID.out * sine  + pFOC->iqPID.out * cosine;
+
 }
 
 static void MotorEnable(void *this, bool enable)
 {
-    PWM_Opt *pPWM =  &((FOC_t*)this)->pSvpwm->pwm_opts;
+    PWM_Opt *pPWM =  &((FOC_t*)this)->pSvpwm->PwmOpts;
     pPWM->enable(pPWM->priv, enable);
 }
 
@@ -238,6 +245,11 @@ bool FOC_init(FOC_t *pFOC)
     {
         return false;
     }
+
+    if(pFOC->pSensor == NULL)
+    {
+        
+    }
     // pFOC->GetPreCurrent = ADCGetPreCurrent;
     pFOC->rNum = 3;
     pFOC->idPID.kp = 0.0008f;
@@ -248,8 +260,8 @@ bool FOC_init(FOC_t *pFOC)
     pFOC->iqPID.out = 1;
 
     pFOC->EnableMotor = MotorEnable;
-    pFOC->pSvpwm->pwm_opts.init(pFOC->pSvpwm);
-    pFOC->pRsSamp->init(pFOC->pRsSamp->priv);
+    pFOC->pSvpwm->Init(pFOC->pSvpwm);
+    pFOC->pRsSamp->Init(pFOC->pRsSamp->priv);
     
     // LPF_Init(&filter_ADC, 200, 20000);
 
@@ -271,7 +283,7 @@ void FocControl(FOC_t *pFOC)
     Svpwm_t *pSvpwm = pFOC->pSvpwm;
     // if(pFOC->isEnable)
     // {
-        pFOC->radian = ((uint16_t)(pFOC->radian+32))&0x7fff;
+        pFOC->radian = ((uint16_t)(pFOC->radian+4))&0x7fff;
         param->angle = pFOC->radian;
     // }
     // ClarkeTransform(pFOC);
@@ -282,10 +294,9 @@ void FocControl(FOC_t *pFOC)
     pSvpwm->VectorTime(pSvpwm);
     pSvpwm->Generate(pSvpwm);
 
-    // memcpy(param->PWM, pSvpwm->t_PWM, sizeof(pSvpwm->t_PWM));
     if((counter&PRINTF_SUBBUF_MASK) == (PRINTF_SUBBUF_MASK))
     {
-        HAL_UART_Transmit_DMA(&huart1, (uint8_t*)(param - PRINTF_SUBBUF_MASK), sizeof(FocParam) * PRINTF_SUBBUF_NUM);
+        // HAL_UART_Transmit_DMA(&huart1, (uint8_t*)(param - PRINTF_SUBBUF_MASK), sizeof(FocParam) * PRINTF_SUBBUF_NUM);
     }
     param = &param_buff[++counter & PRINTF_TOTAL_MASK];
 }

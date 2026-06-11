@@ -28,14 +28,14 @@ typedef enum
 typedef struct 
 {
     void *priv;
-    void (*init)(void *priv);
     void (*enable)(void *priv, bool);
     void (*SetPWM[PHASE_MAX])(void *priv, int16_t);
 } PWM_Opt;
 
 typedef struct
 {
-    PWM_Opt pwm_opts;
+    PWM_Opt PwmOpts;
+    void (*Init)(void *this);
     void (*SectorJudgment)(void *this);
     void (*VectorTime)(void *this);
     void (*Generate)(void *this);

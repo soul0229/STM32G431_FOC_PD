@@ -1,7 +1,7 @@
 #include "FocCommon.h"
 /* common */
 
-bool sensor_register(FOC_t *pFOC, Sensor_t *pSensor)
+bool sensor_register(FOC_t *pFOC, const Sensor_t *pSensor)
 {
 	if(pFOC == NULL || pSensor == NULL)
 	{

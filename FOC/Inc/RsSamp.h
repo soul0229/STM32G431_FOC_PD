@@ -21,7 +21,7 @@ typedef struct {
 typedef struct
 {
     void        *priv;
-    void        (*init)(void *priv);
+    void        (*Init)(void *priv);
     uint16_t    (*getRsSample[RESISTOR_MAX])(void *priv);
     void        *filterPriv;
     float       amplifier;

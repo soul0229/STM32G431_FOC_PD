@@ -65,20 +65,8 @@ static void TimerxChannel4ITEnable(void *priv, bool isEnable)
     }
 }
 
-static void Motor_Init(void *this)
-{
-	PWM_Opt *pPWM = &((Svpwm_t*)this)->pwm_opts;
-
-	pPWM->SetPWM[PHASE_U](pPWM->priv, 0);
-	pPWM->SetPWM[PHASE_V](pPWM->priv, 0);
-	pPWM->SetPWM[PHASE_W](pPWM->priv, 0);
-	pPWM->SetPWM[PHASE_INT](pPWM->priv, 4000);
-	pPWM->enable(pPWM->priv, false);
-}
-
 static const PWM_Opt pwmOptDefault = 
 {
-	.init 				= Motor_Init,
 	.enable 			= TimerxChannel4ITEnable,
 	.SetPWM[PHASE_U] 	= SetTIM1Channel1HighLeaveTime_us,
 	.SetPWM[PHASE_V] 	= SetTIM1Channel2HighLeaveTime_us,
@@ -109,7 +97,7 @@ static void RsSampleADCInit(void *priv)
 
 static const RsSamp_t RsSampDefaultCfg = 
 {
-	.init 						= RsSampleADCInit,
+	.Init 						= RsSampleADCInit,
 	.getRsSample[RESISTOR_U] 	= getRsSampleValueU,
 	.getRsSample[RESISTOR_V] 	= getRsSampleValueV,
 	.getRsSample[RESISTOR_W] 	= getRsSampleValueW,
@@ -127,12 +115,12 @@ FOC_t *motor_init(TIM_HandleTypeDef *htim, ADC_HandleTypeDef *hadc)
 		goto pFOC_malloc_error;
 	}
 
-	if(!Svpwm_register(pFOC, (PWM_Opt*)&pwmOptDefault, htim))
+	if(!Svpwm_register(pFOC, &pwmOptDefault, htim))
 	{
 		goto Svpwm_register_error;
 	}
 
-	if(!RsSamp_register(pFOC, (RsSamp_t *)&RsSampDefaultCfg, hadc))
+	if(!RsSamp_register(pFOC, &RsSampDefaultCfg, hadc))
 	{
 		goto RsSamp_register_error;
 	}

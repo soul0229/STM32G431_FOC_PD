@@ -1,6 +1,6 @@
 #ifndef __THREE_PHASE_HALL_H__
 #define __THREE_PHASE_HALL_H__
-#include "Sensor.h"
+#include "FocCommon.h"
 
 typedef struct
 {

@@ -1,4 +1,3 @@
-#include "FocCommon.h"
 #include "ThreePhaseHall.h"
 #include <stdlib.h>
 

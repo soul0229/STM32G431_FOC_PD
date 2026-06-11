@@ -12,9 +12,9 @@ typedef enum
 
 typedef enum
 {
-    DIR_BACKWARD = -1,
-    DIR_INVALID = 0,
-    DIR_FORWARD = 1,
+    DIR_BACKWARD    = -1,
+    DIR_INVALID     = 0,
+    DIR_FORWARD     = 1,
     DIR_MAX
 } Direction_t;
 

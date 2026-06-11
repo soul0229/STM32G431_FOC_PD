@@ -68,7 +68,7 @@ static void ADCGetPreCurrent(void *this)
  
 }
 
-bool RsSamp_register(FOC_t *pFOC, RsSamp_t *pRsSamp, void *priv)
+bool RsSamp_register(FOC_t *pFOC, const RsSamp_t *pRsSamp, void *priv)
 {
     if(pFOC == NULL || pRsSamp == NULL || priv == NULL)
     {
@@ -80,7 +80,7 @@ bool RsSamp_register(FOC_t *pFOC, RsSamp_t *pRsSamp, void *priv)
         return false;
     }
 
-    if(pRsSamp->init == NULL)
+    if(pRsSamp->Init == NULL)
     {
         return false;
     }
