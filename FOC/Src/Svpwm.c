@@ -1,25 +1,28 @@
-#include "Svpwm.h"
+#include "FocCommon.h"
+#include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
-#include "tim.h"
-#include "usart.h"
-#include <stdbool.h>
-#include <stdlib.h>
 
-#include "usb_device.h"
-FocParam param = {
-    .header  = {0xaa, 0xbb},
-    .tail = {0xcc, 0xdd},
-};
-uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len);
+extern UART_HandleTypeDef huart1;
 
-void SvpwmSectorJudgment(void *this)
+void SvpwmInit(void *this)
 {
-    pSvpwm_Info pSvpwm = this;
-    const uint8_t sector_judg[8] = {0, 2, 6, 1, 4, 3, 5, 0};
-    uint8_t a = 0;
-    uint8_t b = 0;
-    uint8_t c = 0;
+    Svpwm_t *pSvpwm = this;
+	PWM_Opt *pPWM = &pSvpwm->PwmOpts;
+
+	pPWM->SetPWM[PHASE_U](pPWM->priv, 0);
+	pPWM->SetPWM[PHASE_V](pPWM->priv, 0);
+	pPWM->SetPWM[PHASE_W](pPWM->priv, 0);
+	pPWM->SetPWM[PHASE_INT](pPWM->priv, 4000);
+	pPWM->enable(pPWM->priv, false);
+}
+
+static void SvpwmSectorJudgment(void *this)
+{
+    Svpwm_t *pSvpwm = this;
+    uint32_t *U = (uint32_t *)&pSvpwm->u1;
+    const uint8_t sector_judg[8] = {0, SECTOR_2, SECTOR_6, SECTOR_1, SECTOR_4, SECTOR_3, SECTOR_5, 0};
+
     float u_alpha_sqrt3_2, u_beta, u_beta_2;
 
     u_alpha_sqrt3_2 = pSvpwm->u_alpha * FLOAT_SQRT3_2;
@@ -29,220 +32,173 @@ void SvpwmSectorJudgment(void *this)
     pSvpwm->u1 = u_beta;
     pSvpwm->u2 = u_alpha_sqrt3_2 - u_beta_2;
     pSvpwm->u3 = -u_alpha_sqrt3_2 - u_beta_2;
-
-    if(pSvpwm->u1 > 0)
-    {
-        a = 1;
-    } 
-    if(pSvpwm->u2 > 0)
-    {
-        b = 1;
-    } 
-    if(pSvpwm->u3 > 0)
-    {
-        c = 1;
-    }
-    pSvpwm->sector = sector_judg[c<<2|b<<1|a];
+    pSvpwm->sector = sector_judg[(U[0] >> 31) | ((U[1] & 0x80000000) >> 30) | ((U[2] & 0x80000000) >> 29)];
 }
 
-
-void GetVectorDuration(void *this)
+/* sector process */
+static void svpwm_sector_valid_process(Svpwm_t *pSvpwm, uint16_t *t_PWM)
 {
-    pSvpwm_Info pSvpwm = this;
-	int32_t ts = pSvpwm->ts;
+}
+
+static void svpwm_sector_1_process(Svpwm_t *pSvpwm, uint16_t *t_PWM)
+{
+    int32_t ts = pSvpwm->ts;
 	float udc = pSvpwm->udc;
-	
-    switch (pSvpwm->sector) {
-        case 1:
-            pSvpwm->t4 = FLOAT_SQRT3_2 * ts * pSvpwm->u2 / udc;
-            pSvpwm->t6 = FLOAT_SQRT3_2 * ts * pSvpwm->u1 / udc;
-            pSvpwm->t0 = pSvpwm->t7 = (ts - pSvpwm->t4 - pSvpwm->t6) / 2;
-            break;
-        case 2:
-            pSvpwm->t2 = - FLOAT_SQRT3_2 * ts * pSvpwm->u2 / udc;
-            pSvpwm->t6 = - FLOAT_SQRT3_2 * ts * pSvpwm->u3 / udc;
-            pSvpwm->t0 = pSvpwm->t7 = (ts - pSvpwm->t2 - pSvpwm->t6) / 2;
-            break;
-        case 3:
-            pSvpwm->t2 = FLOAT_SQRT3_2 * ts * pSvpwm->u1 / udc;
-            pSvpwm->t3 = FLOAT_SQRT3_2 * ts * pSvpwm->u3 / udc;
-            pSvpwm->t0 = pSvpwm->t7 = (ts - pSvpwm->t2 - pSvpwm->t3) / 2;
-            break;
-        case 4:
-            pSvpwm->t1 = - FLOAT_SQRT3_2 * ts * pSvpwm->u1 / udc;
-            pSvpwm->t3 = - FLOAT_SQRT3_2 * ts * pSvpwm->u2 / udc;
-            pSvpwm->t0 = pSvpwm->t7 = (ts - pSvpwm->t1 - pSvpwm->t3) / 2;
-            break;
-        case 5:
-            pSvpwm->t1 = FLOAT_SQRT3_2 * ts * pSvpwm->u3 / udc;
-            pSvpwm->t5 = FLOAT_SQRT3_2 * ts * pSvpwm->u2 / udc;
-            pSvpwm->t0 = pSvpwm->t7 = (ts - pSvpwm->t1 - pSvpwm->t5) / 2;
-            break;
-        case 6:
-            pSvpwm->t4 = - FLOAT_SQRT3_2 * ts * pSvpwm->u3 / udc;
-            pSvpwm->t5 = - FLOAT_SQRT3_2 * ts * pSvpwm->u1 / udc;
-            pSvpwm->t0 = pSvpwm->t7 = (ts - pSvpwm->t4 - pSvpwm->t5) / 2;
-            break;
-        default:
-            break;
-    }
+    pSvpwm->t4 = FLOAT_SQRT3_2 * ts * pSvpwm->u2 / udc;
+    pSvpwm->t6 = FLOAT_SQRT3_2 * ts * pSvpwm->u1 / udc;
+    pSvpwm->t0 = pSvpwm->t7 = (ts - pSvpwm->t4 - pSvpwm->t6) / 2;
+
+    t_PWM[PHASE_U] = pSvpwm->t4 + pSvpwm->t6 + pSvpwm->t7;
+    t_PWM[PHASE_V] = pSvpwm->t6 + pSvpwm->t7;
+    t_PWM[PHASE_W] = pSvpwm->t7;
 }
 
-void SvpwmGenerate(void *this)
+static void svpwm_sector_2_process(Svpwm_t *pSvpwm, uint16_t *t_PWM)
 {
-    pSvpwm_Info pSvpwm = this;
-    PWM_Opt *p_opts = pSvpwm->s_opts->pwm_opts;
-    void *private = p_opts->private;
+    int32_t ts = pSvpwm->ts;
+	float udc = pSvpwm->udc;
+    pSvpwm->t2 = - FLOAT_SQRT3_2 * ts * pSvpwm->u2 / udc;
+    pSvpwm->t6 = - FLOAT_SQRT3_2 * ts * pSvpwm->u3 / udc;
+    pSvpwm->t0 = pSvpwm->t7 = (ts - pSvpwm->t2 - pSvpwm->t6) / 2;
 
-	uint16_t t[Total] = {0};
-    switch (pSvpwm->sector) {
-        case 1:
-            t[PHASE_U] = pSvpwm->t4 + pSvpwm->t6 + pSvpwm->t7;
-            t[PHASE_V] = pSvpwm->t6 + pSvpwm->t7;
-            t[PHASE_W] = pSvpwm->t7;
-            break;
-        case 2:
-            t[PHASE_U] = pSvpwm->t6 + pSvpwm->t7;
-            t[PHASE_V] = pSvpwm->t2 + pSvpwm->t6 + pSvpwm->t7;
-            t[PHASE_W] = pSvpwm->t7;
-            break;
-        case 3:
-            t[PHASE_U] = pSvpwm->t7;
-            t[PHASE_V] = pSvpwm->t2 + pSvpwm->t3 + pSvpwm->t7;
-            t[PHASE_W] = pSvpwm->t3 + pSvpwm->t7;
-            break;
-        case 4:
-            t[PHASE_U] = pSvpwm->t7;
-            t[PHASE_V] = pSvpwm->t3 + pSvpwm->t7;
-            t[PHASE_W] = pSvpwm->t1 + pSvpwm->t3 + pSvpwm->t7;
-            break;
-        case 5:
-            t[PHASE_U] = pSvpwm->t5 + pSvpwm->t7;
-            t[PHASE_V] = pSvpwm->t7;
-            t[PHASE_W] = pSvpwm->t1 + pSvpwm->t5 + pSvpwm->t7;
-            break;
-        case 6:
-            t[PHASE_U] = pSvpwm->t4 + pSvpwm->t5 + pSvpwm->t7;
-            t[PHASE_V] = pSvpwm->t7;
-            t[PHASE_W] = pSvpwm->t5 + pSvpwm->t7;
-            break;
-    }
-    // uint8_t len = sprintf(uart, "U:%d V:%d W:%d\r\n", t[PHASE_U], t[PHASE_V], t[PHASE_W]);
-    memcpy(param.PWM, t, sizeof(t));
-    t[INT] = 4000;
-    // CDC_Transmit_FS((uint8_t*)&param, sizeof(FocParam));
-
-    p_opts->SetPWM[PHASE_U](private, t[PHASE_U]);
-    p_opts->SetPWM[PHASE_V](private, t[PHASE_V]);
-    p_opts->SetPWM[PHASE_W](private, t[PHASE_W]);
-    p_opts->SetPWM[INT](private, t[INT]);
+    t_PWM[PHASE_U] = pSvpwm->t6 + pSvpwm->t7;
+    t_PWM[PHASE_V] = pSvpwm->t2 + pSvpwm->t6 + pSvpwm->t7;
+    t_PWM[PHASE_W] = pSvpwm->t7;
 }
 
-Sector GetSVPWMSector(void *this)
+static void svpwm_sector_3_process(Svpwm_t *pSvpwm, uint16_t *t_PWM)
 {
-    pSvpwm_Info pSvpwm = this;
-    return pSvpwm->sector;
+    int32_t ts = pSvpwm->ts;
+	float udc = pSvpwm->udc;
+    pSvpwm->t2 = FLOAT_SQRT3_2 * ts * pSvpwm->u1 / udc;
+    pSvpwm->t3 = FLOAT_SQRT3_2 * ts * pSvpwm->u3 / udc;
+    pSvpwm->t0 = pSvpwm->t7 = (ts - pSvpwm->t2 - pSvpwm->t3) / 2;
+
+    t_PWM[PHASE_U] = pSvpwm->t7;
+    t_PWM[PHASE_V] = pSvpwm->t2 + pSvpwm->t3 + pSvpwm->t7;
+    t_PWM[PHASE_W] = pSvpwm->t3 + pSvpwm->t7;
 }
 
-void SvpwmControl(void *this)
+static void svpwm_sector_4_process(Svpwm_t *pSvpwm, uint16_t *t_PWM)
 {
-    pSvpwm_Info pSvpwm = this;
-    Svpwm_Opt *s_opts = pSvpwm->s_opts;
-    s_opts->SectorJudgment(this);
-    s_opts->VectorTime(this);
-    s_opts->Generate(this);
+    int32_t ts = pSvpwm->ts;
+	float udc = pSvpwm->udc;
+    pSvpwm->t1 = - FLOAT_SQRT3_2 * ts * pSvpwm->u1 / udc;
+    pSvpwm->t3 = - FLOAT_SQRT3_2 * ts * pSvpwm->u2 / udc;
+    pSvpwm->t0 = pSvpwm->t7 = (ts - pSvpwm->t1 - pSvpwm->t3) / 2;
+
+    t_PWM[PHASE_U] = pSvpwm->t7;
+    t_PWM[PHASE_V] = pSvpwm->t3 + pSvpwm->t7;
+    t_PWM[PHASE_W] = pSvpwm->t1 + pSvpwm->t3 + pSvpwm->t7;
 }
 
-const Svpwm_Opt svpwm_opts = 
+static void svpwm_sector_5_process(Svpwm_t *pSvpwm, uint16_t *t_PWM)
 {
-    .Generate = SvpwmGenerate,
-    .GetSector = GetSVPWMSector,
-    .SectorJudgment = SvpwmSectorJudgment,
-    .VectorTime = GetVectorDuration,
-    .SvpwmControl = SvpwmControl
+    int32_t ts = pSvpwm->ts;
+	float udc = pSvpwm->udc;
+    pSvpwm->t1 = FLOAT_SQRT3_2 * ts * pSvpwm->u3 / udc;
+    pSvpwm->t5 = FLOAT_SQRT3_2 * ts * pSvpwm->u2 / udc;
+    pSvpwm->t0 = pSvpwm->t7 = (ts - pSvpwm->t1 - pSvpwm->t5) / 2;
+
+    t_PWM[PHASE_U] = pSvpwm->t5 + pSvpwm->t7;
+    t_PWM[PHASE_V] = pSvpwm->t7;
+    t_PWM[PHASE_W] = pSvpwm->t1 + pSvpwm->t5 + pSvpwm->t7;
+}
+
+static void svpwm_sector_6_process(Svpwm_t *pSvpwm, uint16_t *t_PWM)
+{
+    int32_t ts = pSvpwm->ts;
+	float udc = pSvpwm->udc;
+    pSvpwm->t4 = - FLOAT_SQRT3_2 * ts * pSvpwm->u3 / udc;
+    pSvpwm->t5 = - FLOAT_SQRT3_2 * ts * pSvpwm->u1 / udc;
+    pSvpwm->t0 = pSvpwm->t7 = (ts - pSvpwm->t4 - pSvpwm->t5) / 2;
+
+    t_PWM[PHASE_U] = pSvpwm->t4 + pSvpwm->t5 + pSvpwm->t7;
+    t_PWM[PHASE_V] = pSvpwm->t7;
+    t_PWM[PHASE_W] = pSvpwm->t5 + pSvpwm->t7;
+}
+
+void (*const sector_process[MAX_SECTOR])(Svpwm_t *, uint16_t *) = 
+{
+    [SECTOR_INVALID_0]  = svpwm_sector_valid_process,
+    [SECTOR_1]          = svpwm_sector_1_process,
+    [SECTOR_2]          = svpwm_sector_2_process,
+    [SECTOR_3]          = svpwm_sector_3_process,
+    [SECTOR_4]          = svpwm_sector_4_process,
+    [SECTOR_5]          = svpwm_sector_5_process,
+    [SECTOR_6]          = svpwm_sector_6_process,
+    [SECTOR_INVALID_7]  = svpwm_sector_valid_process,
 };
 
-
-bool check_pwm_opts(PWM_Opt *opts)
+static void GetVectorDuration(void *this)
 {
-    if(opts->enable == NULL)
+    Svpwm_t *pSvpwm = this;
+    uint16_t *t_PWM = param->PWM;
+    sector_process[pSvpwm->sector](pSvpwm, t_PWM);
+}
+
+static void SvpwmGenerate(void *this)
+{
+    Svpwm_t *pSvpwm = this;
+	uint16_t *t_PWM = param->PWM;
+    pSvpwm->PwmOpts.SetPWM[PHASE_U](pSvpwm->PwmOpts.priv, t_PWM[PHASE_U]);
+    pSvpwm->PwmOpts.SetPWM[PHASE_V](pSvpwm->PwmOpts.priv, t_PWM[PHASE_V]);
+    pSvpwm->PwmOpts.SetPWM[PHASE_W](pSvpwm->PwmOpts.priv, t_PWM[PHASE_W]);
+}
+
+static const Svpwm_t defaultSvpwm = 
+{
+    .Init           = SvpwmInit,
+    .SectorJudgment = SvpwmSectorJudgment,
+    .VectorTime     = GetVectorDuration,
+    .Generate       = SvpwmGenerate,
+};
+
+bool Svpwm_register(FOC_t *pFOC, const PWM_Opt *pPWM_opts, void *priv)
+{
+    if(pFOC == NULL || pPWM_opts == NULL || priv == NULL)
     {
         return false;
     }
 
-    if(opts->init == NULL)
+    if(pPWM_opts->enable == NULL)
     {
         return false;
     }
 
-    if(opts->private == NULL)
+    if(pPWM_opts->SetPWM[PHASE_U] == NULL || pPWM_opts->SetPWM[PHASE_V] == NULL || \
+        pPWM_opts->SetPWM[PHASE_W] == NULL || pPWM_opts->SetPWM[PHASE_INT] == NULL)
     {
         return false;
     }
 
-    for(uint8_t function = PHASE_U; function < Total; function++)
+    pFOC->pSvpwm = (Svpwm_t*)malloc(sizeof(Svpwm_t));
+    if(pFOC->pSvpwm == NULL)
     {
-        if(opts->SetPWM[function] == NULL)
-        {
-            return false;
-        }
+        return false;
     }
+    *pFOC->pSvpwm = defaultSvpwm;
+    pFOC->pSvpwm->udc = 5;
+    pFOC->pSvpwm->ts = 4200;
+
+    pFOC->pSvpwm->PwmOpts = *pPWM_opts;
+    pFOC->pSvpwm->PwmOpts.priv = priv;
+
     return true;
 }
 
-pSvpwm_Info Svpwm_init(PWM_Opt *opts)
+bool Svpwm_unregister(FOC_t *pFOC)
 {
-    if(!check_pwm_opts(opts))
+    if(pFOC == NULL)
     {
-        return NULL;
+        return false;
     }
 
-    Svpwm_Opt *s_opts = malloc(sizeof(Svpwm_Opt));
-    if(!s_opts)
+    if(pFOC->pSvpwm)
     {
-        return NULL;
+        free(pFOC->pSvpwm);
     }
-    *s_opts = svpwm_opts;
-    s_opts->pwm_opts = opts;
-
-    pSvpwm_Info svpwm = malloc(sizeof(Svpwm_Info));
-    if(!svpwm)
-    {
-        free(s_opts);
-        return NULL;
-    }
-
-    svpwm->udc = 5;
-    svpwm->ts = 4200;
-
-    svpwm->s_opts = s_opts;
-    return svpwm;
-}
-
-void Svpwm_deinit(pSvpwm_Info svpwm)
-{
-    if(svpwm == NULL)
-    {
-        return;
-    }
-
-    if(svpwm->s_opts == NULL)
-    {
-        goto free_svpwm;
-    }
-
-    Svpwm_Opt *s_opts = svpwm->s_opts;
-    if(s_opts->pwm_opts == NULL)
-    {
-        goto free_s_opts;
-    }
-    PWM_Opt *p_opts = s_opts->pwm_opts;
-
-    free(p_opts);
-free_s_opts:
-    free(s_opts);
-free_svpwm:
-    free(svpwm);
+    return true;
 }
 
 

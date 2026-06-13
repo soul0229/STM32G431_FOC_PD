@@ -1,47 +1,45 @@
 #ifndef __SVPWM_H__
 #define __SVPWM_H__
-#include "FocCommon.h"
-#include <stdint.h>
 
-enum
+#include <stdint.h>
+#include <stdbool.h>
+typedef enum
 {
     PHASE_U = 0,
     PHASE_V,
     PHASE_W,
-    INT,
-    Total
-};
+    PHASE_INT,
+    PHASE_MAX
+} Phase_t;
 
 typedef enum
 {
-    SECTOR_1 = 1,
+    SECTOR_INVALID_0 = 0,
+    SECTOR_1,
     SECTOR_2,
     SECTOR_3,
     SECTOR_4,
     SECTOR_5,
-    SECTOR_6
-} Sector;
+    SECTOR_6,
+    SECTOR_INVALID_7,
+    MAX_SECTOR
+} Sector_t;
 
 typedef struct 
 {
-    void (*init)(void*);
-    void (*enable)(void* , bool);
-    void (*SetPWM[Total])(void*, int16_t);
-    void *private;
+    void *priv;
+    void (*enable)(void *priv, bool);
+    void (*SetPWM[PHASE_MAX])(void *priv, int16_t);
 } PWM_Opt;
-
-typedef struct 
-{
-    void (*SectorJudgment)(void*);
-    void (*VectorTime)(void*);
-    void (*Generate)(void*);
-    void (*SvpwmControl)(void*);
-    Sector (*GetSector)(void*);
-    PWM_Opt *pwm_opts;
-} Svpwm_Opt;
 
 typedef struct
 {
+    PWM_Opt PwmOpts;
+    void (*Init)(void *this);
+    void (*SectorJudgment)(void *this);
+    void (*VectorTime)(void *this);
+    void (*Generate)(void *this);
+
     float udc;
     float u_alpha;
     float u_beta;
@@ -60,26 +58,22 @@ typedef struct
     int32_t ts;
     int32_t maxTs;
     int32_t adcTs;
-    
-    Sector sector;
-    Svpwm_Opt *s_opts;
-} Svpwm_Info;
-typedef Svpwm_Info* pSvpwm_Info;
+    Sector_t sector;
 
-pSvpwm_Info Svpwm_init(PWM_Opt *opts);
-void Svpwm_deinit(pSvpwm_Info svpwm);
+    uint16_t t_PWM[PHASE_MAX];
+} Svpwm_t;
+
+Svpwm_t *Svpwm_init(PWM_Opt *pPWM_opts, void *priv);
+void Svpwm_deinit(Svpwm_t *pSvpwm);
 
 typedef struct {
-	uint8_t header[2];
-	uint16_t PWM[Total];
+	uint16_t header;
+	uint16_t PWM[PHASE_MAX];
     uint8_t HallA[3];
-    uint8_t HallB[3];
-    uint8_t Dirction[2];
-    uint16_t adc_value[4];
+    uint8_t DIR;
+    int16_t adc_value[3];
     uint32_t angle;
-    int32_t value;
-    uint32_t speed;
-    uint8_t tail[2];
-} __attribute__((packed)) FocParam;
+    uint16_t tail;
+} FocParam;
 
 #endif /* Svpwm_h */
