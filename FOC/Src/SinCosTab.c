@@ -2,7 +2,7 @@
 #include "FocCommon.h"
 #include <stdint.h>
 
-
+#ifdef USE_SINCOS_TAB
 /* max value is 0x7fff */
 static const int16_t SinCosTab[4096] = 
 {
@@ -519,7 +519,7 @@ static const int16_t SinCosTab[4096] =
     0xfcdc, 0xfd0f, 0xfd41, 0xfd73, 0xfda5, 0xfdd8, 0xfe0a, 0xfe3c, 
     0xfe6e, 0xfea1, 0xfed3, 0xff05, 0xff37, 0xff6a, 0xff9c, 0xffce
 };
-
+#endif
 
 void sin_cos_4096(uint16_t angle, float32_t *sine, float32_t *cosine)
 {

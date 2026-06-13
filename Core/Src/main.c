@@ -59,7 +59,7 @@ bool motor[4] = {0};
 uint8_t motor_n = 0;
 const uint16_t delay[4] = {100, 100, 100, 700};
 uint8_t cnt = 0;
-extern FocParam param;
+extern FocParam *param;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -130,17 +130,8 @@ int main(void)
     Error_Handler();
   }
 
-  uint16_t delay1[4] = {100, 100, 100, 100};
-  uint8_t cnt = 0;
   // FOC_motor[0] = motor_init(&htim1);
-  FOC_motor[1] = motor_init(&htim8);
-  HAL_TIMEx_HallSensor_Start_IT(&htim2);
-  HAL_TIMEx_HallSensor_Start_IT(&htim3);
-  HAL_ADCEx_Calibration_Start(&hadc2, ADC_SINGLE_ENDED);
-  HAL_ADCEx_InjectedStart_IT(&hadc2);
-  uint16_t delay[4] = {100, 100, 100, 700};
-  uint8_t cnt = 0;
-  param.HallA[2] = 1;
+  FOC_motor[1] = motor_init(&htim8, &hadc2);
   // HAL_CORDIC_Calculate_DMA();
   /* USER CODE END 2 */
 
@@ -255,11 +246,12 @@ void HAL_ADCEx_InjectedConvCpltCallback(ADC_HandleTypeDef *hadc)
 {
     if(hadc == FOC_motor[1]->pRsSamp->priv)
     {
-        param.adc_value[0] = HAL_ADCEx_InjectedGetValue(&hadc2,ADC_INJECTED_RANK_1);
-        param.adc_value[1] = HAL_ADCEx_InjectedGetValue(&hadc2,ADC_INJECTED_RANK_2);
-        param.adc_value[2] = HAL_ADCEx_InjectedGetValue(&hadc2,ADC_INJECTED_RANK_3);
-        param.adc_value[3] = HAL_ADCEx_InjectedGetValue(&hadc2,ADC_INJECTED_RANK_4);
-        // CDC_Transmit_FS((uint8_t*)&param, sizeof(FocParam));
+      // FOC_motor[1]->GetPreCurrent(FOC_motor[1]);
+      FocControl(FOC_motor[1]);
+      // HAL_ADCEx_InjectedGetValue(&hadc2,ADC_INJECTED_RANK_4);
+      // param->adc_value[0] = FOC_motor[1]->ia;
+      // param->adc_value[1] = FOC_motor[1]->ib;
+      // param->adc_value[2] = FOC_motor[1]->ic;
     }
 }
 
