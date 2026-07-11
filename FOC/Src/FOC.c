@@ -257,7 +257,7 @@ bool FOC_init(FOC_t *pFOC)
 
     pFOC->iqPID.kp = 0.0008f;
     pFOC->iqPID.ki = 0.0004f;
-    pFOC->iqPID.out = 1;
+    pFOC->iqPID.out = 2;
 
     pFOC->EnableMotor = MotorEnable;
     pFOC->pSvpwm->Init(pFOC->pSvpwm);
@@ -283,7 +283,7 @@ void FocControl(FOC_t *pFOC)
     Svpwm_t *pSvpwm = pFOC->pSvpwm;
     // if(pFOC->isEnable)
     // {
-        pFOC->radian = ((uint16_t)(pFOC->radian+4))&0x7fff;
+        pFOC->radian += 16;
         param->angle = pFOC->radian;
     // }
     // ClarkeTransform(pFOC);

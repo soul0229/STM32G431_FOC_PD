@@ -10,25 +10,15 @@ static const FOC_t FocDefault = {
 	.iqPID.out 	= 0,
 };
 
-static void SetTIM1Channel1HighLeaveTime_us(void *priv, int16_t time)
+static void SetTIMxUVWChannelHighLeaveTimePWM(void *priv, uint16_t *time)
 {
 	TIM_HandleTypeDef *htim = priv;
-    __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_1, time);
+    __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_1, time[PHASE_U]);
+	__HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_2, time[PHASE_V]);
+	__HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_3, time[PHASE_W]);
 }
 
-static void SetTIM1Channel2HighLeaveTime_us(void *priv, int16_t time)
-{
-	TIM_HandleTypeDef *htim = priv;
-    __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_2, time);
-}
-
-static void SetTIM1Channel3HighLeaveTime_us(void *priv, int16_t time)
-{
-	TIM_HandleTypeDef *htim = priv;
-    __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_3, time);
-}
-
-static void SetTIM1Channel4HighLeaveTime_us(void *priv, int16_t time)
+static void SetTIMxChannel4HighLeaveTimePWM(void *priv, uint16_t time)
 {
 	TIM_HandleTypeDef *htim = priv;
     __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_4, time);
@@ -67,11 +57,9 @@ static void TimerxChannel4ITEnable(void *priv, bool isEnable)
 
 static const PWM_Opt pwmOptDefault = 
 {
-	.enable 			= TimerxChannel4ITEnable,
-	.SetPWM[PHASE_U] 	= SetTIM1Channel1HighLeaveTime_us,
-	.SetPWM[PHASE_V] 	= SetTIM1Channel2HighLeaveTime_us,
-	.SetPWM[PHASE_W] 	= SetTIM1Channel3HighLeaveTime_us,
-	.SetPWM[PHASE_INT] 	= SetTIM1Channel4HighLeaveTime_us,
+	.enable 	= TimerxChannel4ITEnable,
+	.SetPWM 	= SetTIMxUVWChannelHighLeaveTimePWM,
+	.SetCH4PWM	= SetTIMxChannel4HighLeaveTimePWM
 };
 
 static uint16_t getRsSampleValueU(void *priv)

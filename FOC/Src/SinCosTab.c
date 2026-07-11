@@ -524,9 +524,11 @@ static const int16_t SinCosTab[4096] =
 void sin_cos_4096(uint16_t angle, float32_t *sine, float32_t *cosine)
 {
 #ifdef USE_SINCOS_TAB
-    *sine   = (float32_t)SinCosTab[angle & 0xFFF] / 0x8000;
+    angle >>= 4;
+    *sine   = (float32_t)SinCosTab[angle] / 0x8000;
     *cosine = (float32_t)SinCosTab[(angle + 0x400) & 0xFFF] / 0x8000;
 #else
+    angle &= 0x7FFF;
     *sine   = (float32_t)arm_sin_q15(angle) / 0x8000;
     *cosine = (float32_t)arm_cos_q15(angle) / 0x8000;
 #endif

@@ -29,7 +29,8 @@ typedef struct
 {
     void *priv;
     void (*enable)(void *priv, bool);
-    void (*SetPWM[PHASE_MAX])(void *priv, int16_t);
+    void (*SetPWM)(void *priv, uint16_t *);
+    void (*SetCH4PWM)(void *priv, uint16_t);
 } PWM_Opt;
 
 typedef struct

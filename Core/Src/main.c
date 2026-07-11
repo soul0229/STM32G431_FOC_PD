@@ -130,7 +130,7 @@ int main(void)
     Error_Handler();
   }
 
-  // FOC_motor[0] = motor_init(&htim1);
+  FOC_motor[0] = motor_init(&htim1, &hadc1);
   FOC_motor[1] = motor_init(&htim8, &hadc2);
   // HAL_CORDIC_Calculate_DMA();
   /* USER CODE END 2 */
@@ -253,6 +253,11 @@ void HAL_ADCEx_InjectedConvCpltCallback(ADC_HandleTypeDef *hadc)
       // param->adc_value[1] = FOC_motor[1]->ib;
       // param->adc_value[2] = FOC_motor[1]->ic;
     }
+    else if(hadc == FOC_motor[0]->pRsSamp->priv)
+    {
+      // FOC_motor[0]->GetPreCurrent(FOC_motor[0]);
+      FocControl(FOC_motor[0]);
+    }
 }
 
 bool state = true;
@@ -263,6 +268,11 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
     FOC_motor[1]->EnableMotor(FOC_motor[1], state);
     state = state?false:true;
 	}
+  if(GPIO_Pin == KEY0_Pin)
+  {
+    FOC_motor[0]->EnableMotor(FOC_motor[0], state);
+    state = state?false:true;
+  }
 }
 /* USER CODE END 4 */
 

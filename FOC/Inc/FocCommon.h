@@ -19,7 +19,7 @@
 
 // #include "sincos.h"
 //#include "arm_math.h"
-// #define USE_SINCOS_TAB
+#define USE_SINCOS_TAB
 
 #define MAX_PWM_OUT				20000
 #define LIM_PWM_OUT				20000

@@ -4,16 +4,16 @@
 #include <string.h>
 
 extern UART_HandleTypeDef huart1;
+static const uint8_t sector_judg[MAX_SECTOR] = {0, SECTOR_5, SECTOR_3, SECTOR_4, SECTOR_1, SECTOR_6, SECTOR_2, 0};
 
 void SvpwmInit(void *this)
 {
     Svpwm_t *pSvpwm = this;
 	PWM_Opt *pPWM = &pSvpwm->PwmOpts;
 
-	pPWM->SetPWM[PHASE_U](pPWM->priv, 0);
-	pPWM->SetPWM[PHASE_V](pPWM->priv, 0);
-	pPWM->SetPWM[PHASE_W](pPWM->priv, 0);
-	pPWM->SetPWM[PHASE_INT](pPWM->priv, 4000);
+    memset(pSvpwm->t_PWM, 0x00, sizeof(pSvpwm->t_PWM));
+	pPWM->SetPWM(pPWM->priv, pSvpwm->t_PWM);
+	pPWM->SetCH4PWM(pPWM->priv, 4000);
 	pPWM->enable(pPWM->priv, false);
 }
 
@@ -21,17 +21,16 @@ static void SvpwmSectorJudgment(void *this)
 {
     Svpwm_t *pSvpwm = this;
     uint32_t *U = (uint32_t *)&pSvpwm->u1;
-    const uint8_t sector_judg[8] = {0, SECTOR_2, SECTOR_6, SECTOR_1, SECTOR_4, SECTOR_3, SECTOR_5, 0};
-
     float u_alpha_sqrt3_2, u_beta, u_beta_2;
 
     u_alpha_sqrt3_2 = pSvpwm->u_alpha * FLOAT_SQRT3_2;
-    u_beta = pSvpwm->u_beta;
-    u_beta_2 = u_beta/2;
+    u_beta          = pSvpwm->u_beta;
+    u_beta_2        = u_beta / 2;
 
     pSvpwm->u1 = u_beta;
     pSvpwm->u2 = u_alpha_sqrt3_2 - u_beta_2;
     pSvpwm->u3 = -u_alpha_sqrt3_2 - u_beta_2;
+
     pSvpwm->sector = sector_judg[(U[0] >> 31) | ((U[1] & 0x80000000) >> 30) | ((U[2] & 0x80000000) >> 29)];
 }
 
@@ -133,17 +132,17 @@ void (*const sector_process[MAX_SECTOR])(Svpwm_t *, uint16_t *) =
 static void GetVectorDuration(void *this)
 {
     Svpwm_t *pSvpwm = this;
-    uint16_t *t_PWM = param->PWM;
+    // uint16_t *t_PWM = param->PWM;
+    uint16_t *t_PWM = pSvpwm->t_PWM;
     sector_process[pSvpwm->sector](pSvpwm, t_PWM);
 }
 
 static void SvpwmGenerate(void *this)
 {
     Svpwm_t *pSvpwm = this;
-	uint16_t *t_PWM = param->PWM;
-    pSvpwm->PwmOpts.SetPWM[PHASE_U](pSvpwm->PwmOpts.priv, t_PWM[PHASE_U]);
-    pSvpwm->PwmOpts.SetPWM[PHASE_V](pSvpwm->PwmOpts.priv, t_PWM[PHASE_V]);
-    pSvpwm->PwmOpts.SetPWM[PHASE_W](pSvpwm->PwmOpts.priv, t_PWM[PHASE_W]);
+	// uint16_t *t_PWM = param->PWM;
+    uint16_t *t_PWM = pSvpwm->t_PWM;
+    pSvpwm->PwmOpts.SetPWM(pSvpwm->PwmOpts.priv, t_PWM);
 }
 
 static const Svpwm_t defaultSvpwm = 
@@ -166,8 +165,7 @@ bool Svpwm_register(FOC_t *pFOC, const PWM_Opt *pPWM_opts, void *priv)
         return false;
     }
 
-    if(pPWM_opts->SetPWM[PHASE_U] == NULL || pPWM_opts->SetPWM[PHASE_V] == NULL || \
-        pPWM_opts->SetPWM[PHASE_W] == NULL || pPWM_opts->SetPWM[PHASE_INT] == NULL)
+    if(pPWM_opts->SetPWM == NULL || pPWM_opts->SetCH4PWM == NULL)
     {
         return false;
     }
@@ -178,14 +176,14 @@ bool Svpwm_register(FOC_t *pFOC, const PWM_Opt *pPWM_opts, void *priv)
         return false;
     }
     *pFOC->pSvpwm = defaultSvpwm;
-    pFOC->pSvpwm->udc = 5;
+    pFOC->pSvpwm->udc = 4;
     pFOC->pSvpwm->ts = 4200;
 
     pFOC->pSvpwm->PwmOpts = *pPWM_opts;
     pFOC->pSvpwm->PwmOpts.priv = priv;
 
     return true;
-}
+} 
 
 bool Svpwm_unregister(FOC_t *pFOC)
 {
