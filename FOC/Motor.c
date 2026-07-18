@@ -10,20 +10,14 @@ static const FOC_t FocDefault = {
 	.iqPID.out 	= 0,
 };
 
-static void SetTIMxUVWChannelHighLeaveTimePWM(void *priv, uint16_t *time)
+static void SetTIMxUVWIChannelHighLeaveTimePWM(void *priv, uint16_t *time)
 {
 	TIM_HandleTypeDef *htim = priv;
     __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_1, time[PHASE_U]);
 	__HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_2, time[PHASE_V]);
 	__HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_3, time[PHASE_W]);
+	__HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_4, time[PHASE_INT]);
 }
-
-static void SetTIMxChannel4HighLeaveTimePWM(void *priv, uint16_t time)
-{
-	TIM_HandleTypeDef *htim = priv;
-    __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_4, time);
-}
-
 
 static void TimerxChannel4ITEnable(void *priv, bool isEnable)
 {
@@ -58,8 +52,7 @@ static void TimerxChannel4ITEnable(void *priv, bool isEnable)
 static const PWM_Opt pwmOptDefault = 
 {
 	.enable 	= TimerxChannel4ITEnable,
-	.SetPWM 	= SetTIMxUVWChannelHighLeaveTimePWM,
-	.SetCH4PWM	= SetTIMxChannel4HighLeaveTimePWM
+	.SetPWM 	= SetTIMxUVWIChannelHighLeaveTimePWM,
 };
 
 static uint16_t getRsSampleValueU(void *priv)
@@ -89,8 +82,10 @@ static const RsSamp_t RsSampDefaultCfg =
 	.getRsSample[RESISTOR_U] 	= getRsSampleValueU,
 	.getRsSample[RESISTOR_V] 	= getRsSampleValueV,
 	.getRsSample[RESISTOR_W] 	= getRsSampleValueW,
-	.sampRefVolt 				= 3.4,
 	.amplifier 					= 11,
+	.sampRefVolt 				= 5.0f,
+	.sampOfsVolt				= 2.4f,
+	.sampMaxValue				= 4096,
 	.mOhm 						= 50,
 };
 

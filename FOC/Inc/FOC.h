@@ -15,13 +15,13 @@ typedef struct
     float ki;
     float kd;
 
-    float pre;
-    float tar;
-    float bias;
-    float lastBias;
+    float present;
+    float target;
+    float kb;
+    float iSum;
     float out;
     float outMax;
-} PI_t;
+} PID_t;
 
 typedef struct
 {
@@ -43,11 +43,8 @@ typedef struct
     float       angle;            // 角度
     uint16_t    radian;        // 弧度
 
-    float       iAlphaSVPWM;      // park反变换后 后 Iα
-    float       iBetaSVPWM;       // park反变换后 后 Iβ
-
-    PI_t        idPID;
-    PI_t        iqPID;
+    PID_t       idPID;
+    PID_t       iqPID;
 
     Svpwm_t     *pSvpwm;
     RsSamp_t    *pRsSamp;

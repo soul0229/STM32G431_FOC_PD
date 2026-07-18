@@ -150,7 +150,7 @@ void MX_ADC2_Init(void)
 
   /** Configure Injected Channel
   */
-  sConfigInjected.InjectedChannel = ADC_CHANNEL_12;
+  sConfigInjected.InjectedChannel = ADC_CHANNEL_17;
   sConfigInjected.InjectedRank = ADC_INJECTED_RANK_1;
   sConfigInjected.InjectedSamplingTime = ADC_SAMPLETIME_2CYCLES_5;
   sConfigInjected.InjectedSingleDiff = ADC_SINGLE_ENDED;
@@ -179,7 +179,7 @@ void MX_ADC2_Init(void)
 
   /** Configure Injected Channel
   */
-  sConfigInjected.InjectedChannel = ADC_CHANNEL_17;
+  sConfigInjected.InjectedChannel = ADC_CHANNEL_12;
   sConfigInjected.InjectedRank = ADC_INJECTED_RANK_3;
   if (HAL_ADCEx_InjectedConfigChannel(&hadc2, &sConfigInjected) != HAL_OK)
   {

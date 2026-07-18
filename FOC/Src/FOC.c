@@ -1,213 +1,37 @@
 #include "FocCommon.h"
 #include "arm_math.h"
 
-#define FOC_ANGLE_TO_RADIN      0.01745f
-#define M_OUTMAX                9.0f * 0.577f
-#define M_KP                    0.0008f
-#define M_KI                    0.0004f
-#define M_KD                    0.0f
-
 extern UART_HandleTypeDef huart1;
 const FocParam default_param = {.header  = 0x55aa,.tail = 0xaa55};
 FocParam param_buff[PRINTF_BUF_NUM * PRINTF_SUBBUF_NUM];
 FocParam *param = param_buff;
 uint32_t counter = 0;
 
-// FOC_data FOCdata = DATA_TX_INIT;
-// int16_t lastAdcData[RESIST_NUM] = {0, 0, 0};
 
-// static void GetMotorPreCurrent(float *ua,float *ub,float *uc);
-
-// static void CurrentPIControlID(PFOC_Struct pFOC)
-// {
-//     //获取实际值
-//     pFOC->idPID.pre = pFOC->id ;
-//     //获取目标值
-//     pFOC->idPID.tar = pFOC->tarid;
-//     //计算偏差
-//     pFOC->idPID.bias = pFOC->idPID.tar - pFOC->idPID.pre;
-//     //计算PID输出值
-//     pFOC->idPID.out += pFOC->idPID.kp * (pFOC->idPID.bias - pFOC->idPID.lastBias) + pFOC->idPID.ki * pFOC->idPID.bias;
-//     //保存偏差
-//     pFOC->idPID.lastBias = pFOC->idPID.bias;
-
-// 	pFOC->idPID.out = LIMIT(pFOC->idPID.out,-pFOC->idPID.outMax,pFOC->idPID.outMax);
-
-// }
-
-// static void CurrentPIControlIQ(PFOC_Struct pFOC)
-// {
-//     //获取实际值
-//     pFOC->iqPID.pre = pFOC->iq;
-//     //获取目标值
-//     pFOC->iqPID.tar = pFOC->tariq;
-//     //计算偏差
-//     pFOC->iqPID.bias = pFOC->iqPID.tar - pFOC->iqPID.pre;
-//     //计算PID输出值
-//     pFOC->iqPID.out += pFOC->iqPID.kp * (pFOC->iqPID.bias - pFOC->iqPID.lastBias) + pFOC->iqPID.ki * pFOC->iqPID.bias;
-//     //保存偏差
-//     pFOC->iqPID.lastBias = pFOC->iqPID.bias;
-	
-// 	pFOC->iqPID.out = LIMIT(pFOC->iqPID.out,-pFOC->iqPID.outMax,pFOC->iqPID.outMax);
-// }
-
-// /*************************************************************
-// ** Function name:       FocContorl
-// ** Descriptions:        FOC控制流程
-// ** Input parameters:    pFOC:结构体指针
-// ** Output parameters:   None
-// ** Returned value:      None
-// ** Remarks:             None
-// *************************************************************/
-// void FocContorl(PFOC_Struct pFOC)
-// {
-//     //0.获取电气角度
-// 		pFOC->radian +=200;
-// //    GetElectricalAngle(pFOC);
-//     //1计算实际电流值
-//    //1.0电流重构
-// 		CurrentReconstruction(pFOC);
-// 		//1.1Clarke变换
-// 		ClarkeTransform(pFOC);
-// 		//1.2Park变换
-// 		ParkTransform(pFOC);
-// //    //2.做PID闭环
-//     CurrentPIControlID(pFOC);
-//     CurrentPIControlIQ(pFOC);
-//     //3.计算输出值iα i贝塔
-//     ParkAntiTransform(pFOC);
-//     //4.输出SVPWM
-//     pFOC->SvpwmGenerate(pFOC->ialphaSVPWM,pFOC->ibetaSVPWM);
-// }
-
-// void SetCurrentPIDTar(PFOC_Struct pFOC,float tarid,float tariq)
-// {
-//     pFOC->tarid = tarid;
-//     pFOC->tariq = tariq;
-// }
-
-// void SetCurrentPIDParams(PFOC_Struct pFOC,float kp,float ki,float kd,float outMax)
-// {
-//     pFOC->idPID.kp = kp;
-//     pFOC->idPID.ki = ki;
-//     pFOC->idPID.kd = kd;
-//     pFOC->idPID.outMax = outMax;
-
-//     pFOC->iqPID.kp = kp;
-//     pFOC->iqPID.ki = ki;
-//     pFOC->iqPID.kd = kd;
-//     pFOC->iqPID.outMax = outMax;
-// }
-
-// void SetFocEnable(PFOC_Struct pFOC,uint8_t isEnable)
-// {
-//     pFOC->isEnable = isEnable;
-// 		pFOC->SetEnable(pFOC->isEnable);
-// }
-
-
-// void SetTarIDIQ(float id,float iq)
-// {
-// 	SetCurrentPIDTar(&gMotorFOC,id,iq);
-// }
-
-
-// #define ORDER 2
-// float b[ORDER + 1] = {0.20657208f, 0.41314417f, 0.20657208f};  // 从Python生成的b系数
-// float a[ORDER + 1] = {1.0f, -0.36952738f, 0.19581571f};        // 从Python生成的a系数
-
-// // 状态数组
-// float x[ORDER + 1] = {0};  // 输入历史值
-// float y[ORDER + 1] = {0};  // 输出历史值
-
-// float iir_filter(float input)
-// {
-//     for (int8_t i = ORDER; i > 0; --i) {
-//         x[i] = x[i - 1];
-//         y[i] = y[i - 1];
-//     }
-//     x[0] = input;
-    
-//     float output = 0;
-//     for (int8_t i = 0; i <= ORDER; ++i) {
-//         output += b[i] * x[i];
-//     }
-//     for (int8_t i = 1; i <= ORDER; ++i) {
-//         output -= a[i] * y[i];
-//     }
-    
-//     y[0] = output;
-    
-//     return output;
-// }
-
-
-// static void GetMotorPreCurrent(float *ua,float *ub,float *uc)
-// {
-// 		float value[3];
-// 		value[0] = ((float)(lastAdcData[0]  + (ADC_offset[0][0] - ADC_offset[1][0]) )/2);
-// 		value[1] = ((float)(lastAdcData[1]  + (ADC_offset[0][1] - ADC_offset[1][1]) )/2);
-// 		value[2] = ((float)(lastAdcData[2]  + (ADC_offset[0][2] - ADC_offset[1][2]) )/2);
-	
-// 		*ua = value[0];
-// 		FOCdata.adc[0] = value[0];
-		
-// 		*ub = value[1];
-// 		FOCdata.adc[1] = value[1];
-		
-// 		*uc = value[2];
-// 		FOCdata.adc[2] = value[2];
-// }
-
-
-// int16_t ADC_offset[2][RESIST_NUM];
-// void CalculateAdcOffset(void)
-// {
-// 	SetTarIDIQ(0.0f,1.0f);
-// 	SetCurrentPIDParams(&gMotorFOC,M_KP,M_KI,M_KD,M_OUTMAX);
-// 	HAL_ADCEx_Calibration_Start(&ADC_PORT);    //ADC内部校准
-// 	HAL_ADC_Start_DMA(&ADC_PORT, (uint32_t *)ADC_offset, RESIST_NUM);
-// }
-
-
-
-static void CurrentReconstruction(FOC_t *pFOC)
+static void PID_Calc(PID_t *pid)
 {
-    Svpwm_t *pSvpwm = pFOC->pSvpwm;
-	// pFOC->GetPreCurrent(&pFOC->ia, &pFOC->ib, &pFOC->ic);
-	if (pFOC->rNum < 3) {
+    float temp;
+    if (pid == NULL) {
         return;
     }
-    switch (pSvpwm->sector) 
-    {
-        case SECTOR_1:
-            pFOC->ia = 0.0f - pFOC->ib - pFOC->ic;
-            break;
-        case SECTOR_2:
-            pFOC->ib = 0.0f - pFOC->ia - pFOC->ic;
-            break;
-        case SECTOR_3:
-            pFOC->ib = 0.0f - pFOC->ia - pFOC->ic;
-            break;
-        case SECTOR_4:
-            pFOC->ic = 0.0f - pFOC->ia - pFOC->ib;
-            break;
-        case SECTOR_5:
-            pFOC->ic = 0.0f - pFOC->ia - pFOC->ib;
-            break;
-        case SECTOR_6:
-            pFOC->ia = 0.0f - pFOC->ib - pFOC->ic;
-            break;
-        default:
-            break;
+
+    float bias = pid->target - pid->present;
+    pid->out = temp = pid->kp * bias + pid->iSum * pid->kd;
+
+    if (pid->out > pid->outMax) {
+        pid->out = pid->outMax;
+    } else if (pid->out < -pid->outMax) {
+        pid->out = -pid->outMax;
     }
+
+    pid->iSum = pid->kb *(pid->out - temp) + pid->ki * bias;
 }
 
 void sin_cos_4096(uint16_t angle, float32_t *sine, float32_t *cosine);
 static void ClarkeTransform(FOC_t *pFOC)
 {
     pFOC->iAlpha = pFOC->ia;
-    pFOC->iBeta = (pFOC->ia + 2.0f * pFOC->ib) / FLOAT_SQRT3;
+    pFOC->iBeta = (pFOC->ia + 2.0f * pFOC->ib) * FLOAT_SQRT3_3;
 }
 
 static void ParkTransform(FOC_t *pFOC)
@@ -223,9 +47,8 @@ static void ParkAntiTransform(FOC_t *pFOC)
     Svpwm_t *pSvpwm = pFOC->pSvpwm;
     float32_t sine, cosine;
     sin_cos_4096(pFOC->radian, &sine, &cosine);
-    pSvpwm->u_alpha = pFOC->iAlphaSVPWM = pFOC->idPID.out * cosine  - pFOC->iqPID.out * sine;
-    pSvpwm->u_beta = pFOC->iBetaSVPWM = pFOC->idPID.out * sine  + pFOC->iqPID.out * cosine;
-
+    pSvpwm->u_alpha = pFOC->idPID.out * cosine - pFOC->iqPID.out * sine;
+    pSvpwm->u_beta  = pFOC->idPID.out * sine + pFOC->iqPID.out * cosine;
 }
 
 static void MotorEnable(void *this, bool enable)
@@ -250,14 +73,21 @@ bool FOC_init(FOC_t *pFOC)
     {
         
     }
+    memset(&pFOC->idPID, 0x00, sizeof(pFOC->idPID));
+    memset(&pFOC->iqPID, 0x00, sizeof(pFOC->iqPID));
     // pFOC->GetPreCurrent = ADCGetPreCurrent;
     pFOC->rNum = 3;
-    pFOC->idPID.kp = 0.0008f;
-    pFOC->idPID.ki = 0.0004f;
+    pFOC->idPID.kp = 5.000f;
+    pFOC->idPID.ki = 0.0001f;
+    pFOC->idPID.kd = 0.0001f;
+    pFOC->idPID.outMax = 2.6f;
+    pFOC->idPID.target = 0;
 
-    pFOC->iqPID.kp = 0.0008f;
-    pFOC->iqPID.ki = 0.0004f;
-    pFOC->iqPID.out = 2;
+    pFOC->iqPID.kp = 10.0f;
+    pFOC->iqPID.ki = 0.01f;
+    pFOC->iqPID.kd = 0.00001f;
+    pFOC->iqPID.outMax = 2.6f;
+    pFOC->iqPID.target = 1.0f;
 
     pFOC->EnableMotor = MotorEnable;
     pFOC->pSvpwm->Init(pFOC->pSvpwm);
@@ -280,14 +110,29 @@ void FocControl(FOC_t *pFOC)
         return;
     }
     
-    Svpwm_t *pSvpwm = pFOC->pSvpwm;
+    Svpwm_t *pSvpwm     = pFOC->pSvpwm;
+    RsSamp_t *pRsSamp   = pFOC->pRsSamp;
     // if(pFOC->isEnable)
     // {
-        pFOC->radian += 16;
-        param->angle = pFOC->radian;
+        pFOC->radian += 32;
     // }
-    // ClarkeTransform(pFOC);
-    // param.adc_value[0] = atan2f(pFOC->iBeta, pFOC->iAlpha)/PI*32768;
+    pRsSamp->ADCGetPreCurrent(pRsSamp);
+    pFOC->ia = (param->adc_value[RESISTOR_U] - 2914);
+    pFOC->ib = (param->adc_value[RESISTOR_V] - 2974);
+    pFOC->ic = (param->adc_value[RESISTOR_W] - 2962);
+
+    ClarkeTransform(pFOC);
+    ParkTransform(pFOC);
+
+    pFOC->id = pFOC->id * 3.3f / 4096 / 0.55f;
+    pFOC->iq = pFOC->iq * 3.3f / 4096 / 0.55f;
+    param->Id = pFOC->id;
+    param->Iq = pFOC->iq;
+    pFOC->idPID.present = pFOC->id;
+    pFOC->iqPID.present = pFOC->iq;
+    PID_Calc(&pFOC->idPID);
+    PID_Calc(&pFOC->iqPID);
+
     ParkAntiTransform(pFOC);
     
     pSvpwm->SectorJudgment(pSvpwm);
@@ -296,7 +141,7 @@ void FocControl(FOC_t *pFOC)
 
     if((counter&PRINTF_SUBBUF_MASK) == (PRINTF_SUBBUF_MASK))
     {
-        // HAL_UART_Transmit_DMA(&huart1, (uint8_t*)(param - PRINTF_SUBBUF_MASK), sizeof(FocParam) * PRINTF_SUBBUF_NUM);
+        HAL_UART_Transmit_DMA(&huart1, (uint8_t*)(param - PRINTF_SUBBUF_MASK), sizeof(FocParam) * PRINTF_SUBBUF_NUM);
     }
     param = &param_buff[++counter & PRINTF_TOTAL_MASK];
 }

@@ -130,7 +130,7 @@ int main(void)
     Error_Handler();
   }
 
-  FOC_motor[0] = motor_init(&htim1, &hadc1);
+  // FOC_motor[0] = motor_init(&htim1, &hadc1);
   FOC_motor[1] = motor_init(&htim8, &hadc2);
   // HAL_CORDIC_Calculate_DMA();
   /* USER CODE END 2 */

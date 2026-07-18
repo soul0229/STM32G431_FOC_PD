@@ -23,11 +23,15 @@ typedef struct
     void        *priv;
     void        (*Init)(void *priv);
     uint16_t    (*getRsSample[RESISTOR_MAX])(void *priv);
+    void        (*ADCGetPreCurrent)(void *this);
     void        *filterPriv;
     float       amplifier;
     float       sampRefVolt;
+    float       sampOfsVolt;
+    uint16_t    sampMaxValue;
     uint8_t     mOhm;
     
+
     uint32_t    offset[RESISTOR_MAX];
     uint16_t    averageCnt;
 } RsSamp_t;

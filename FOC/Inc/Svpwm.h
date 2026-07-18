@@ -30,7 +30,6 @@ typedef struct
     void *priv;
     void (*enable)(void *priv, bool);
     void (*SetPWM)(void *priv, uint16_t *);
-    void (*SetCH4PWM)(void *priv, uint16_t);
 } PWM_Opt;
 
 typedef struct
@@ -56,6 +55,7 @@ typedef struct
     float t5;
     float t6;
     float t7;
+    float tk;
     int32_t ts;
     int32_t maxTs;
     int32_t adcTs;
@@ -69,11 +69,9 @@ void Svpwm_deinit(Svpwm_t *pSvpwm);
 
 typedef struct {
 	uint16_t header;
-	uint16_t PWM[PHASE_MAX];
-    uint8_t HallA[3];
-    uint8_t DIR;
     int16_t adc_value[3];
-    uint32_t angle;
+    float   Id;
+    float   Iq;
     uint16_t tail;
 } FocParam;
 
