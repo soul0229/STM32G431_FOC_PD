@@ -1,13 +1,12 @@
 #include "FocCommon.h"
-/* common */
 
-bool sensor_register(FOC_t *pFOC, const Sensor_t *pSensor)
+bool Sensor_register(FOC_t *pFOC, const Sensor_t *pSensor, void *priv)
 {
 	if(pFOC == NULL || pSensor == NULL)
 	{
 		return false;
 	}
-	if(!pSensor->get_angle || !pSensor->init)
+	if(!pSensor->getAngle || !pSensor->init || !pSensor->update)
 	{
 		return false;
 	}
@@ -18,20 +17,28 @@ bool sensor_register(FOC_t *pFOC, const Sensor_t *pSensor)
 		return false;
 	}
 
-	*pFOC->pSensor = *pSensor;
+	*pFOC->pSensor 			= *pSensor;
+	pFOC->pSensor->angle 	= &pFOC->radian;
+	pFOC->pSensor->priv 	= priv;
 	return true; // Sensor registered successfully
 }
 
-bool sensor_unregister(FOC_t *pFOC)
+bool Sensor_unregister(FOC_t *pFOC)
 {
 	if(pFOC == NULL)
 	{
 		return false;
 	}
+
+	if(pFOC->pSensor->priv_data)
+	{
+		free(pFOC->pSensor->priv_data);
+	}
+
 	if(pFOC->pSensor)
 	{
 		free(pFOC->pSensor);
 	}
 	
-	return true; // Sensor registered successfully
+	return true; // Sensor unregistered successfully
 }

@@ -1,22 +1,17 @@
 #include "FocCommon.h"
 
-static const FOC_t FocDefault = {
-	.rNum 		= 3,
-	.idPID.kp 	= 0.0008f,
-	.idPID.ki 	= 0.0004f,
-
-	.iqPID.kp 	= 0.0008f,
-	.iqPID.ki 	= 0.0004f,
-	.iqPID.out 	= 0,
-};
-
+extern const Sensor_t sensor;
 static void SetTIMxUVWIChannelHighLeaveTimePWM(void *priv, uint16_t *time)
 {
 	TIM_HandleTypeDef *htim = priv;
-    __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_1, time[PHASE_U]);
-	__HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_2, time[PHASE_V]);
-	__HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_3, time[PHASE_W]);
-	__HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_4, time[PHASE_INT]);
+	htim->Instance->CCR1 = time[PHASE_U];
+	htim->Instance->CCR2 = time[PHASE_V];
+	htim->Instance->CCR3 = time[PHASE_W];
+	htim->Instance->CCR4 = time[PHASE_INT];
+    // __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_1, time[PHASE_U]);
+	// __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_2, time[PHASE_V]);
+	// __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_3, time[PHASE_W]);
+	// __HAL_TIM_SET_COMPARE(htim, TIM_CHANNEL_4, time[PHASE_INT]);
 }
 
 static void TimerxChannel4ITEnable(void *priv, bool isEnable)
@@ -53,6 +48,8 @@ static const PWM_Opt pwmOptDefault =
 {
 	.enable 	= TimerxChannel4ITEnable,
 	.SetPWM 	= SetTIMxUVWIChannelHighLeaveTimePWM,
+	.udc		= 5.0f,
+	.cycle		= 4199
 };
 
 static uint16_t getRsSampleValueU(void *priv)
@@ -97,13 +94,19 @@ FOC_t *motor_init(TIM_HandleTypeDef *htim, ADC_HandleTypeDef *hadc)
 	{
 		goto pFOC_malloc_error;
 	}
-
+	
+	memset(pFOC, 0x00, sizeof(FOC_t));
 	if(!Svpwm_register(pFOC, &pwmOptDefault, htim))
 	{
 		goto Svpwm_register_error;
 	}
 
 	if(!RsSamp_register(pFOC, &RsSampDefaultCfg, hadc))
+	{
+		goto RsSamp_register_error;
+	}
+
+	if(!Sensor_register(pFOC, &sensor, NULL))
 	{
 		goto RsSamp_register_error;
 	}
@@ -123,10 +126,4 @@ Svpwm_register_error:
 	free(pFOC);
 pFOC_malloc_error:      
 	return NULL;
-}
-
-void get_adc_offset(FOC_t *pFoc)
-{
-	// HAL_ADCEx_InjectedGetValue(&hadc2,ADC_INJECTED_RANK_1);
-
 }

@@ -47,8 +47,8 @@
 #define PRINTF_SUBBUF_MASK      (PRINTF_SUBBUF_NUM - 1)
 #define PRINTF_TOTAL_MASK       (PRINTF_SUBBUF_NUM * PRINTF_BUF_NUM - 1)
 
-bool sensor_register(FOC_t *pFOC, const Sensor_t *pSensor);
-bool sensor_unregister(FOC_t *pFOC);
+bool Sensor_register(FOC_t *pFOC, const Sensor_t *pSensor, void *priv);
+bool Sensor_unregister(FOC_t *pFOC);
 
 bool Svpwm_register(FOC_t *pFOC, const PWM_Opt *pPWM_opts, void *priv);
 bool Svpwm_unregister(FOC_t *pFOC);
@@ -58,7 +58,7 @@ bool RsSamp_unregister(FOC_t *pFOC);
 
 bool FOC_init(FOC_t *pFOC);
 void FocControl(FOC_t *pFOC);
-extern FocParam *param;
+extern FocParam_t *param;
 
 
 #endif

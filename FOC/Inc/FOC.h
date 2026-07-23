@@ -15,8 +15,6 @@ typedef struct
     float ki;
     float kd;
 
-    float present;
-    float target;
     float kb;
     float iSum;
     float out;
@@ -40,7 +38,7 @@ typedef struct
 
     float       tar_iq;
     float       tar_id;
-    float       angle;            // 角度
+    
     uint16_t    radian;        // 弧度
 
     PID_t       idPID;

@@ -4,7 +4,7 @@
 #include "FocCommon.h"
 
 
-extern FocParam *param;
+extern FocParam_t *param;
 
 FOC_t *motor_init(TIM_HandleTypeDef *htim, ADC_HandleTypeDef *hadc);
 #endif

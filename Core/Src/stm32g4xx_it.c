@@ -22,9 +22,7 @@
 #include "stm32g4xx_it.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "usb_device.h"
-#include <stdio.h>
-#include "FOC.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -44,8 +42,7 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
-uint8_t p_buff[1024] = {0};
-uint32_t timer_interrupt_cnt_1 = 0;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -71,10 +68,7 @@ extern TIM_HandleTypeDef htim8;
 extern DMA_HandleTypeDef hdma_usart1_tx;
 extern UART_HandleTypeDef huart1;
 /* USER CODE BEGIN EV */
-extern UART_HandleTypeDef huart1;
-extern FOC_t *FOC_motor[4];
-extern FocParam param;
-uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len);
+
 /* USER CODE END EV */
 
 /******************************************************************************/

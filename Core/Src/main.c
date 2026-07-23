@@ -29,7 +29,6 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "FocCommon.h"
 #include "Motor.h"
 #include <stdint.h>
 #include <arm_math.h>
@@ -52,14 +51,11 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
+const uint16_t delay_ms[] = {100, 100, 100, 700};
+
 CORDIC_ConfigTypeDef sCordicConfig;
-uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len);
 FOC_t *FOC_motor[4] = {NULL};
-bool motor[4] = {0};
-uint8_t motor_n = 0;
-const uint16_t delay[4] = {100, 100, 100, 700};
 uint8_t cnt = 0;
-extern FocParam *param;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -139,7 +135,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    HAL_Delay(delay[cnt++%4]);
+    HAL_Delay(delay_ms[cnt++&0x3]);
     HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
     /* USER CODE END WHILE */
 
@@ -196,49 +192,22 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-/* [last][current] */
-uint8_t last[2] = {0}, current[2] = {0};
-const int8_t direction[8][8]  = 
-{
-	[0] = {},
-
-	[1] = {[3] = -100, [5] = 100},
-	[5] = {[1] = -100, [4] = 100},
-	[4] = {[5] = -100, [6] = 100},
-	[6] = {[4] = -100, [2] = 100},
-	[2] = {[6] = -100, [3] = 100},
-	[3] = {[2] = -100, [1] = 100},
-
-	[7] = {},
-};
-
-const uint16_t hall_angle[8] = {0, 28806, 6930, 1614, 17952, 23352, 12234, 0};
-const uint16_t hall_angle_r[8] = {0, 32377, 10347, 4747, 21261, 26815, 16157, 0};
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) 
 {
   if(htim == &htim2)
   {
+    FOC_motor[1]->pSensor->update(FOC_motor[1]->pSensor, (void*)0, 1);
     // if(htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1)
     //   param.speed = HAL_TIM_ReadCapturedValue(&htim2, TIM_CHANNEL_1);
     // param.HallA[2] = HAL_GPIO_ReadPin(HALL1_U_GPIO_Port, HALL1_U_Pin);
     // param.HallA[1] = HAL_GPIO_ReadPin(HALL1_V_GPIO_Port, HALL1_V_Pin);
     // param.HallA[0] = HAL_GPIO_ReadPin(HALL1_W_GPIO_Port, HALL1_W_Pin);
-
-    // // FOC_motor[1]->radian = ((uint16_t)(hall_angle[param.HallA[0]<<2|param.HallA[1]<<1|param.HallA[2]]-8192))%(uint16_t)32768;
-    // // HAL_UART_Transmit_DMA(&huart1, (uint8_t*)&param, sizeof(FocParam));
-    // current[0] = param.HallA[0] | param.HallA[1] << 1 | param.HallA[2] << 2;
-    // param.Dirction[0] = direction[last[0]][current[0]];
-    // last[0] = current[0];
   }
   else if(htim == &htim3)
   {
     // param.HallB[2] = HAL_GPIO_ReadPin(HALL2_U_GPIO_Port, HALL2_U_Pin);
     // param.HallB[1] = HAL_GPIO_ReadPin(HALL2_V_GPIO_Port, HALL2_V_Pin);
     // param.HallB[0] = HAL_GPIO_ReadPin(HALL2_W_GPIO_Port, HALL2_W_Pin);
-
-    // current[1] = param.HallB[0] | param.HallB[1] << 1 | param.HallB[2] << 2;
-    // param.Dirction[1] = direction[last[1]][current[1]];
-    // last[1] = current[1];
   }
 }
 
@@ -246,16 +215,10 @@ void HAL_ADCEx_InjectedConvCpltCallback(ADC_HandleTypeDef *hadc)
 {
     if(hadc == FOC_motor[1]->pRsSamp->priv)
     {
-      // FOC_motor[1]->GetPreCurrent(FOC_motor[1]);
       FocControl(FOC_motor[1]);
-      // HAL_ADCEx_InjectedGetValue(&hadc2,ADC_INJECTED_RANK_4);
-      // param->adc_value[0] = FOC_motor[1]->ia;
-      // param->adc_value[1] = FOC_motor[1]->ib;
-      // param->adc_value[2] = FOC_motor[1]->ic;
     }
     else if(hadc == FOC_motor[0]->pRsSamp->priv)
     {
-      // FOC_motor[0]->GetPreCurrent(FOC_motor[0]);
       FocControl(FOC_motor[0]);
     }
 }
@@ -263,15 +226,23 @@ void HAL_ADCEx_InjectedConvCpltCallback(ADC_HandleTypeDef *hadc)
 bool state = true;
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-	if(GPIO_Pin == KEY1_Pin)
+
+  if(GPIO_Pin == KEY0_Pin)
+  {
+    // FOC_motor[0]->EnableMotor(FOC_motor[0], state);
+    // state = state?false:true;
+    FOC_motor[1]->tar_iq -= 0.25;
+  }
+  else if(GPIO_Pin == KEY1_Pin)
   {
     FOC_motor[1]->EnableMotor(FOC_motor[1], state);
     state = state?false:true;
 	}
-  if(GPIO_Pin == KEY0_Pin)
+  else if(GPIO_Pin == KEY2_Pin)
   {
-    FOC_motor[0]->EnableMotor(FOC_motor[0], state);
-    state = state?false:true;
+    // FOC_motor[0]->EnableMotor(FOC_motor[0], state);
+    // state = state?false:true;
+    FOC_motor[1]->tar_iq += 0.25;
   }
 }
 /* USER CODE END 4 */

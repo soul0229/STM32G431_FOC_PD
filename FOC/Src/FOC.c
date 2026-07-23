@@ -2,20 +2,20 @@
 #include "arm_math.h"
 
 extern UART_HandleTypeDef huart1;
-const FocParam default_param = {.header  = 0x55aa,.tail = 0xaa55};
-FocParam param_buff[PRINTF_BUF_NUM * PRINTF_SUBBUF_NUM];
-FocParam *param = param_buff;
+const FocParam_t default_param = {.header  = 0x55aa,.tail = 0xaa55};
+FocParam_t param_buff[PRINTF_BUF_NUM * PRINTF_SUBBUF_NUM];
+FocParam_t *param = param_buff;
 uint32_t counter = 0;
 
 
-static void PID_Calc(PID_t *pid)
+static void PID_Calc(PID_t *pid, float target, float present)
 {
     float temp;
     if (pid == NULL) {
         return;
     }
 
-    float bias = pid->target - pid->present;
+    float bias = target - present;
     pid->out = temp = pid->kp * bias + pid->iSum * pid->kd;
 
     if (pid->out > pid->outMax) {
@@ -69,10 +69,6 @@ bool FOC_init(FOC_t *pFOC)
         return false;
     }
 
-    if(pFOC->pSensor == NULL)
-    {
-        
-    }
     memset(&pFOC->idPID, 0x00, sizeof(pFOC->idPID));
     memset(&pFOC->iqPID, 0x00, sizeof(pFOC->iqPID));
     // pFOC->GetPreCurrent = ADCGetPreCurrent;
@@ -81,19 +77,19 @@ bool FOC_init(FOC_t *pFOC)
     pFOC->idPID.ki = 0.0001f;
     pFOC->idPID.kd = 0.0001f;
     pFOC->idPID.outMax = 2.6f;
-    pFOC->idPID.target = 0;
 
     pFOC->iqPID.kp = 10.0f;
     pFOC->iqPID.ki = 0.01f;
     pFOC->iqPID.kd = 0.00001f;
     pFOC->iqPID.outMax = 2.6f;
-    pFOC->iqPID.target = 1.0f;
 
     pFOC->EnableMotor = MotorEnable;
     pFOC->pSvpwm->Init(pFOC->pSvpwm);
     pFOC->pRsSamp->Init(pFOC->pRsSamp->priv);
-    
-    // LPF_Init(&filter_ADC, 200, 20000);
+    if(pFOC->pSensor != NULL)
+    {
+        pFOC->pSensor->init(pFOC->pSensor);
+    }
 
     for(uint16_t cnt = 0; cnt < PRINTF_BUF_NUM * PRINTF_SUBBUF_NUM; cnt++)
     {
@@ -112,11 +108,11 @@ void FocControl(FOC_t *pFOC)
     
     Svpwm_t *pSvpwm     = pFOC->pSvpwm;
     RsSamp_t *pRsSamp   = pFOC->pRsSamp;
-    // if(pFOC->isEnable)
-    // {
-        pFOC->radian += 32;
-    // }
+    Sensor_t *pSensor   = pFOC->pSensor;
+
+    pSensor->getAngle(pSensor);
     pRsSamp->ADCGetPreCurrent(pRsSamp);
+    
     pFOC->ia = (param->adc_value[RESISTOR_U] - 2914);
     pFOC->ib = (param->adc_value[RESISTOR_V] - 2974);
     pFOC->ic = (param->adc_value[RESISTOR_W] - 2962);
@@ -124,14 +120,11 @@ void FocControl(FOC_t *pFOC)
     ClarkeTransform(pFOC);
     ParkTransform(pFOC);
 
-    pFOC->id = pFOC->id * 3.3f / 4096 / 0.55f;
-    pFOC->iq = pFOC->iq * 3.3f / 4096 / 0.55f;
-    param->Id = pFOC->id;
-    param->Iq = pFOC->iq;
-    pFOC->idPID.present = pFOC->id;
-    pFOC->iqPID.present = pFOC->iq;
-    PID_Calc(&pFOC->idPID);
-    PID_Calc(&pFOC->iqPID);
+    param->Id = pFOC->id = pFOC->id * 3.3f / 4096 / 0.55f;
+    param->Iq = pFOC->iq = pFOC->iq * 3.3f / 4096 / 0.55f;
+
+    PID_Calc(&pFOC->idPID, pFOC->tar_id, pFOC->id);
+    PID_Calc(&pFOC->iqPID, pFOC->tar_iq, pFOC->iq);
 
     ParkAntiTransform(pFOC);
     
@@ -139,9 +132,9 @@ void FocControl(FOC_t *pFOC)
     pSvpwm->VectorTime(pSvpwm);
     pSvpwm->Generate(pSvpwm);
 
-    if((counter&PRINTF_SUBBUF_MASK) == (PRINTF_SUBBUF_MASK))
+    if((counter & PRINTF_SUBBUF_MASK) == (PRINTF_SUBBUF_MASK))
     {
-        HAL_UART_Transmit_DMA(&huart1, (uint8_t*)(param - PRINTF_SUBBUF_MASK), sizeof(FocParam) * PRINTF_SUBBUF_NUM);
+        HAL_UART_Transmit_DMA(&huart1, (uint8_t*)(param - PRINTF_SUBBUF_MASK), sizeof(FocParam_t) * PRINTF_SUBBUF_NUM);
     }
     param = &param_buff[++counter & PRINTF_TOTAL_MASK];
 }

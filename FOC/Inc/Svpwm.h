@@ -30,6 +30,8 @@ typedef struct
     void *priv;
     void (*enable)(void *priv, bool);
     void (*SetPWM)(void *priv, uint16_t *);
+    float udc;
+    uint16_t cycle;
 } PWM_Opt;
 
 typedef struct
@@ -40,7 +42,6 @@ typedef struct
     void (*VectorTime)(void *this);
     void (*Generate)(void *this);
 
-    float udc;
     float u_alpha;
     float u_beta;
     float u1;
@@ -56,12 +57,11 @@ typedef struct
     float t6;
     float t7;
     float tk;
-    int32_t ts;
-    int32_t maxTs;
-    int32_t adcTs;
+    uint16_t ts;
+    uint16_t adcTs;
     Sector_t sector;
 
-    uint16_t t_PWM[PHASE_MAX];
+    uint16_t PWM[PHASE_MAX];
 } Svpwm_t;
 
 Svpwm_t *Svpwm_init(PWM_Opt *pPWM_opts, void *priv);
@@ -73,6 +73,6 @@ typedef struct {
     float   Id;
     float   Iq;
     uint16_t tail;
-} FocParam;
+} FocParam_t;
 
 #endif /* Svpwm_h */
