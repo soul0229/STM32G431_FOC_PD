@@ -10,7 +10,7 @@ typedef enum
     PHASE_W,
     PHASE_INT,
     PHASE_MAX
-} Phase_t;
+} PWM_Phase_t;
 
 typedef enum
 {

@@ -21,6 +21,14 @@ typedef struct
     float outMax;
 } PID_t;
 
+typedef enum
+{
+    PHASE_A,
+    PHASE_B,
+    PHASE_C,
+    PHASE_NUM
+} Ampere_Phase_t;
+
 typedef struct
 {
     bool        isEnable;

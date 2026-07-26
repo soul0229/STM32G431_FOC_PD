@@ -7,6 +7,8 @@ FocParam_t param_buff[PRINTF_BUF_NUM * PRINTF_SUBBUF_NUM];
 FocParam_t *param = param_buff;
 uint32_t counter = 0;
 
+void sin_cos_4096(uint16_t angle, float32_t *sine, float32_t *cosine);
+
 
 static void PID_Calc(PID_t *pid, float target, float present)
 {
@@ -27,7 +29,6 @@ static void PID_Calc(PID_t *pid, float target, float present)
     pid->iSum = pid->kb *(pid->out - temp) + pid->ki * bias;
 }
 
-void sin_cos_4096(uint16_t angle, float32_t *sine, float32_t *cosine);
 static void ClarkeTransform(FOC_t *pFOC)
 {
     pFOC->iAlpha = pFOC->ia;
@@ -85,7 +86,7 @@ bool FOC_init(FOC_t *pFOC)
 
     pFOC->EnableMotor = MotorEnable;
     pFOC->pSvpwm->Init(pFOC->pSvpwm);
-    pFOC->pRsSamp->Init(pFOC->pRsSamp->priv);
+    pFOC->pRsSamp->init(pFOC->pRsSamp);
     if(pFOC->pSensor != NULL)
     {
         pFOC->pSensor->init(pFOC->pSensor);
@@ -110,18 +111,22 @@ void FocControl(FOC_t *pFOC)
     RsSamp_t *pRsSamp   = pFOC->pRsSamp;
     Sensor_t *pSensor   = pFOC->pSensor;
 
+    if(!pRsSamp->getAmpere(pRsSamp))
+    {
+        return;
+    }
+
     pSensor->getAngle(pSensor);
-    pRsSamp->ADCGetPreCurrent(pRsSamp);
-    
-    pFOC->ia = (param->adc_value[RESISTOR_U] - 2914);
-    pFOC->ib = (param->adc_value[RESISTOR_V] - 2974);
-    pFOC->ic = (param->adc_value[RESISTOR_W] - 2962);
+
+    pFOC->ia = param->adc_value[0] = pRsSamp->sampValue[RESISTOR_U];
+    pFOC->ib = param->adc_value[1] = pRsSamp->sampValue[RESISTOR_V];
+    pFOC->ic = param->adc_value[2] = pRsSamp->sampValue[RESISTOR_W];
 
     ClarkeTransform(pFOC);
     ParkTransform(pFOC);
 
-    param->Id = pFOC->id = pFOC->id * 3.3f / 4096 / 0.55f;
-    param->Iq = pFOC->iq = pFOC->iq * 3.3f / 4096 / 0.55f;
+    param->Id = pFOC->id = pFOC->id * pRsSamp->toAmpere;
+    param->Iq = pFOC->iq = pFOC->iq * pRsSamp->toAmpere;
 
     PID_Calc(&pFOC->idPID, pFOC->tar_id, pFOC->id);
     PID_Calc(&pFOC->iqPID, pFOC->tar_iq, pFOC->iq);

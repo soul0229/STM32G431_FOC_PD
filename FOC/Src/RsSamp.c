@@ -1,71 +1,98 @@
 #include "FocCommon.h"
 #include "RsSamp.h"
+#include <stdint.h>
 
-static RsSampLPF_t filter_ADC;
 
-static void LPF_Init(RsSampLPF_t* filter, float cutOffFreq, float sampFreq) {
-    filter->cutOffFreq = cutOffFreq;
-    filter->sampFreq = sampFreq;
+static bool RsSamp_init(void *this)
+{
+    RsSamp_t *pRsSamp   = (RsSamp_t *)this;
+    ADC_t *pADC         = pRsSamp->pADC;
+    RsLPF_t *pLPF       = pRsSamp->pFilter;
 
-    float RC = 1.0f / (2.0f * 3.1415926535f * cutOffFreq);
-    float Ts = 1.0f / sampFreq;
-    filter->alpha = Ts / (Ts + RC);
+    pADC->init(pADC);
+    if(pLPF)
+    {
+       pLPF->init(pLPF); 
+    }
+
+    pRsSamp->toAmpere = 1.0f * 1000 * pADC->maxValue / pADC->maxValue / pADC->amplifier / pADC->mOhm ;
+
+    return true;
+}
+
+static bool RsSample_getAmpere(void *this)
+{
+    bool status = true;
+    RsSamp_t *pRsSamp   = (RsSamp_t *)this;
+    ADC_t *pADC         = pRsSamp->pADC;
+    RsLPF_t *pLPF       = pRsSamp->pFilter;
+
+    status = pADC->getSample(pADC, pRsSamp->sampValue);
+    if(pLPF)
+    {
+        pLPF->fliter(pLPF, pRsSamp->sampValue);
+    }
+    return status;
+}
+
+bool RsSamp_register(FOC_t *pFOC, const ADC_t *pADC, const RsLPF_t *pLPF)
+{
+    if(pFOC == NULL || pADC == NULL)
+    {
+        goto pointer_check_fail;
+    }
+
+    if(pADC->init == NULL || pADC->getSample == NULL || pADC->priv == NULL)
+    {
+        goto pointer_check_fail;
+    }
+
+    if(pLPF)
+    {
+        if(pLPF->init == NULL || pLPF->fliter == NULL)
+        {
+            goto pointer_check_fail;
+        }
+    }
     
-    for (int i = 0; i < RESISTOR_MAX; i++) {
-        filter->prvValue[i] = 0;
-    }
-}
-
-
-static int16_t LPF_SingleUpdate(RsSampLPF_t* filter, int16_t input, int16_t phase)
-{
-    int16_t output = filter->alpha * input + (1.0f - filter->alpha) * filter->prvValue[phase];
-    filter->prvValue[phase] = output;
-    return output;
-}
-
-
-static void ADCGetPreCurrent(void *this)
-{
-    RsSamp_t *pRsSamp = this;
-    param->adc_value[RESISTOR_U] = LPF_SingleUpdate(&filter_ADC, pRsSamp->getRsSample[RESISTOR_U](pRsSamp->priv), RESISTOR_U);
-    param->adc_value[RESISTOR_V] = LPF_SingleUpdate(&filter_ADC, pRsSamp->getRsSample[RESISTOR_V](pRsSamp->priv), RESISTOR_V);
-    param->adc_value[RESISTOR_W] = LPF_SingleUpdate(&filter_ADC, pRsSamp->getRsSample[RESISTOR_W](pRsSamp->priv), RESISTOR_W);
-}
-
-bool RsSamp_register(FOC_t *pFOC, const RsSamp_t *pRsSamp, void *priv)
-{
-    if(pFOC == NULL || pRsSamp == NULL || priv == NULL)
+    RsSamp_t *pRsSamp = (RsSamp_t*)malloc(sizeof(RsSamp_t));
+    if(pRsSamp == NULL)
     {
-        return false;
+        goto RsSamp_amlloc_fail;
+    }
+    memset(pRsSamp, 0x00, sizeof(RsSamp_t));
+
+    pRsSamp->pADC = (ADC_t*)malloc(sizeof(ADC_t));
+    if(pRsSamp->pADC == NULL)
+    {
+        goto adc_malloc_fail;
+    }
+    *pRsSamp->pADC = *pADC;
+
+    if(pLPF)
+    {
+        pRsSamp->pFilter = (RsLPF_t*)malloc(sizeof(RsLPF_t));
+        if(pRsSamp->pFilter == NULL)
+        {
+            goto Filter_malloc_fail;
+        }
+        *pRsSamp->pFilter = *pLPF;
     }
 
-    if(!pRsSamp->getRsSample[RESISTOR_U] || !pRsSamp->getRsSample[RESISTOR_V] || !pRsSamp->getRsSample[RESISTOR_W])
-    {
-        return false;
-    }
+    pRsSamp->init       = RsSamp_init;
+    pRsSamp->getAmpere  = RsSample_getAmpere;
+    pFOC->pRsSamp = pRsSamp;
 
-    if(pRsSamp->Init == NULL)
-    {
-        return false;
-    }
-
-    if(!pRsSamp->sampRefVolt || !pRsSamp->amplifier || !pRsSamp->mOhm)
-    {
-        return false;
-    }
-    
-    pFOC->pRsSamp = (RsSamp_t*)malloc(sizeof(RsSamp_t));
-    if(pFOC->pRsSamp == NULL)
-    {
-        return false;
-    }
-
-    *(pFOC->pRsSamp) = *pRsSamp;
-    pFOC->pRsSamp->priv = priv;
-    pFOC->pRsSamp->ADCGetPreCurrent = ADCGetPreCurrent;
-    LPF_Init(&filter_ADC, 100, 20000);
     return true; // RsSamp registered successfully
+
+Filter_malloc_fail:
+    free(pRsSamp->pADC);
+adc_malloc_fail:
+    free(pRsSamp);
+RsSamp_amlloc_fail:
+pointer_check_fail:
+
+    return false;
 }
 
 
@@ -78,7 +105,29 @@ bool RsSamp_unregister(FOC_t *pFOC)
 
     if(pFOC->pRsSamp)
     {
+        RsSamp_t *pRsSamp = pFOC->pRsSamp;
+        if(pRsSamp->pADC)
+        {
+            free(pRsSamp->pADC);
+            pRsSamp->pADC = NULL;
+        }
+
+        
+        if(pRsSamp->pFilter)
+        {
+            RsLPF_t *pFilter = pRsSamp->pFilter;
+            if(pFilter->priv_data)
+            {
+                free(pFilter->priv_data);
+                pFilter->priv_data = NULL;
+            }
+    
+            free(pRsSamp->pFilter);
+            pRsSamp->pFilter = NULL;
+        }
+
         free(pFOC->pRsSamp);
+        pFOC->pRsSamp = NULL;
     }
 
     return true; // RsSamp registered successfully

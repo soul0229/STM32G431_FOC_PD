@@ -30,6 +30,7 @@
 
 #define PWM_LIMIT(x)			LIMIT(x,MIN_PWM_OUT,LIM_PWM_OUT)
 
+#define FLOAT_PI                3.1415926535f
 #define FLOAT_SQRT3 			1.732050808f
 #define FLOAT_SQRT3_2 			0.866025404f
 #define FLOAT_SQRT3_3 			0.577350269f
@@ -53,7 +54,7 @@ bool Sensor_unregister(FOC_t *pFOC);
 bool Svpwm_register(FOC_t *pFOC, const PWM_Opt *pPWM_opts, void *priv);
 bool Svpwm_unregister(FOC_t *pFOC);
 
-bool RsSamp_register(FOC_t *pFOC, const RsSamp_t *pRsSamp, void *priv);
+bool RsSamp_register(FOC_t *pFOC, const ADC_t *pADC, const RsLPF_t *pLPF);
 bool RsSamp_unregister(FOC_t *pFOC);
 
 bool FOC_init(FOC_t *pFOC);

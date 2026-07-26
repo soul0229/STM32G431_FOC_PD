@@ -11,29 +11,36 @@ typedef enum
     RESISTOR_MAX
 } Resistor_t;
 
-typedef struct {
-    float alpha;
-    float cutOffFreq;
-    float sampFreq;
-    int16_t prvValue[RESISTOR_MAX];
-} RsSampLPF_t;
+typedef struct 
+{
+    bool        (*init)(void *this);
+    void        (*fliter)(void *this, int16_t *);
+    uint16_t    cutOffFreq;
+    uint16_t    sampFreq;
+    void        *priv_data;
+} RsLPF_t;
 
 typedef struct
 {
     void        *priv;
-    void        (*Init)(void *priv);
-    uint16_t    (*getRsSample[RESISTOR_MAX])(void *priv);
-    void        (*ADCGetPreCurrent)(void *this);
-    void        *filterPriv;
+    void        (*init)(void *this);
+    bool        (*getSample)(void *this, int16_t *);
     float       amplifier;
-    float       sampRefVolt;
-    float       sampOfsVolt;
-    uint16_t    sampMaxValue;
+    float       RefVolt;
+    uint16_t    maxValue;
+    uint16_t    offset[RESISTOR_MAX];
+    uint16_t    Average_cnt;
     uint8_t     mOhm;
-    
+} ADC_t;
 
-    uint32_t    offset[RESISTOR_MAX];
-    uint16_t    averageCnt;
+typedef struct
+{
+    ADC_t       *pADC;
+    RsLPF_t     *pFilter;
+    bool        (*init)(void *this);
+    bool        (*getAmpere)(void *this);
+    int16_t     sampValue[RESISTOR_MAX];
+    float       toAmpere;
 } RsSamp_t;
 
 

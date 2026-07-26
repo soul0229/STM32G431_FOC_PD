@@ -213,11 +213,11 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 
 void HAL_ADCEx_InjectedConvCpltCallback(ADC_HandleTypeDef *hadc)
 {
-    if(hadc == FOC_motor[1]->pRsSamp->priv)
+    if(hadc == FOC_motor[1]->pRsSamp->pADC->priv)
     {
       FocControl(FOC_motor[1]);
     }
-    else if(hadc == FOC_motor[0]->pRsSamp->priv)
+    else if(hadc == FOC_motor[0]->pRsSamp->pADC->priv)
     {
       FocControl(FOC_motor[0]);
     }
