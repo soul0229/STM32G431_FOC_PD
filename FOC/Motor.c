@@ -48,7 +48,7 @@ static void TimerxChannel4ITEnable(void *priv, bool isEnable)
     }
 }
 
-static const PWM_Opt pwmOptDefault = 
+static const PWM_t pwmOptDefault = 
 {
 	.enable 	= TimerxChannel4ITEnable,
 	.SetPWM 	= SetTIMxUVWIChannelHighLeaveTimePWM,
@@ -58,7 +58,6 @@ static const PWM_Opt pwmOptDefault =
 
 
 /* adc */
-
 static void RsSampleADCInit(void *this)
 {
 	ADC_HandleTypeDef *phadc = ((ADC_t *)this)->priv;
@@ -129,6 +128,8 @@ static bool LPF_Init(void* this)
 	memset(pLPF_data, 0x00, sizeof(LPF_data_t));
     pLPF_data->alpha = Ts / (Ts + RC);
 
+	pFilter->priv_data = pLPF_data;
+
 	return true;
 }
 
@@ -137,19 +138,11 @@ static void LPF_Fliter_Update(void* this, int16_t *phase)
 {
 	RsLPF_t *pFilter 		= (RsLPF_t *)this;
 	LPF_data_t *pLPF_data 	= (LPF_data_t *)pFilter->priv_data;
-	int16_t output[RESISTOR_MAX];
 
-    output[RESISTOR_U] = pLPF_data->alpha * phase[RESISTOR_U] + (1.0f - pLPF_data->alpha) * pLPF_data->preValue[RESISTOR_U];
-	output[RESISTOR_V] = pLPF_data->alpha * phase[RESISTOR_V] + (1.0f - pLPF_data->alpha) * pLPF_data->preValue[RESISTOR_V];
-	output[RESISTOR_W] = pLPF_data->alpha * phase[RESISTOR_W] + (1.0f - pLPF_data->alpha) * pLPF_data->preValue[RESISTOR_W];
+    pLPF_data->preValue[RESISTOR_U] = phase[RESISTOR_U] = pLPF_data->alpha * phase[RESISTOR_U] + (1.0f - pLPF_data->alpha) * pLPF_data->preValue[RESISTOR_U];
+	pLPF_data->preValue[RESISTOR_V] = phase[RESISTOR_V] = pLPF_data->alpha * phase[RESISTOR_V] + (1.0f - pLPF_data->alpha) * pLPF_data->preValue[RESISTOR_V];
+	pLPF_data->preValue[RESISTOR_W] = phase[RESISTOR_W] = pLPF_data->alpha * phase[RESISTOR_W] + (1.0f - pLPF_data->alpha) * pLPF_data->preValue[RESISTOR_W];
 
-    pLPF_data->preValue[RESISTOR_U] = phase[RESISTOR_U];
-	pLPF_data->preValue[RESISTOR_V] = phase[RESISTOR_V];
-	pLPF_data->preValue[RESISTOR_W] = phase[RESISTOR_W];
-
-	phase[RESISTOR_U] = output[RESISTOR_U];
-	phase[RESISTOR_V] = output[RESISTOR_V];
-	phase[RESISTOR_W] = output[RESISTOR_W];
 }
 
 static const RsLPF_t RsLPFcDefaultCfg = 
@@ -163,29 +156,31 @@ static const RsLPF_t RsLPFcDefaultCfg =
 /* init */
 FOC_t *motor_init(TIM_HandleTypeDef *htim, ADC_HandleTypeDef *hadc)
 {
-	
+	ADC_t ADC_cfg = adcDefaultCfg;
+	PWM_t PWM_cfg = pwmOptDefault;
+	ADC_cfg.priv = hadc;
+	PWM_cfg.priv = htim;
+
 	FOC_t *pFOC = (FOC_t*)malloc(sizeof(FOC_t));
 	if(pFOC == NULL)
 	{
 		goto pFOC_malloc_error;
 	}
-	
 	memset(pFOC, 0x00, sizeof(FOC_t));
-	if(!Svpwm_register(pFOC, &pwmOptDefault, htim))
+
+	if(!Svpwm_register(pFOC, &PWM_cfg))
 	{
 		goto Svpwm_register_error;
 	}
 
-	ADC_t ADC = adcDefaultCfg;
-	ADC.priv = hadc;
-	if(!RsSamp_register(pFOC, &ADC, &RsLPFcDefaultCfg))
+	if(!RsSamp_register(pFOC, &ADC_cfg, &RsLPFcDefaultCfg))
 	{
 		goto RsSamp_register_error;
 	}
 
 	if(!Sensor_register(pFOC, &sensor, NULL))
 	{
-		goto RsSamp_register_error;
+		goto Sensor_register_error;
 	}
 
 	if(!FOC_init(pFOC))
@@ -196,6 +191,8 @@ FOC_t *motor_init(TIM_HandleTypeDef *htim, ADC_HandleTypeDef *hadc)
 	return pFOC;
 
 FOC_init_error:
+	Sensor_unregister(pFOC);
+Sensor_register_error:
 	RsSamp_unregister(pFOC);
 RsSamp_register_error:
 	Svpwm_unregister(pFOC);

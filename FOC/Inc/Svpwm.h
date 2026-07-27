@@ -32,11 +32,11 @@ typedef struct
     void (*SetPWM)(void *priv, uint16_t *);
     float udc;
     uint16_t cycle;
-} PWM_Opt;
+} PWM_t;
 
 typedef struct
 {
-    PWM_Opt PwmOpts;
+    PWM_t *pPWM;
     void (*Init)(void *this);
     void (*SectorJudgment)(void *this);
     void (*VectorTime)(void *this);
@@ -61,10 +61,10 @@ typedef struct
     uint16_t adcTs;
     Sector_t sector;
 
-    uint16_t PWM[PHASE_MAX];
+    uint16_t phasePWM[PHASE_MAX];
 } Svpwm_t;
 
-Svpwm_t *Svpwm_init(PWM_Opt *pPWM_opts, void *priv);
+Svpwm_t *Svpwm_init(PWM_t *pPWM_opts, void *priv);
 void Svpwm_deinit(Svpwm_t *pSvpwm);
 
 typedef struct {

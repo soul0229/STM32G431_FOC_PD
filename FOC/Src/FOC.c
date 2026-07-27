@@ -54,7 +54,7 @@ static void ParkAntiTransform(FOC_t *pFOC)
 
 static void MotorEnable(void *this, bool enable)
 {
-    PWM_Opt *pPWM =  &((FOC_t*)this)->pSvpwm->PwmOpts;
+    PWM_t *pPWM =  ((FOC_t*)this)->pSvpwm->pPWM;
     pPWM->enable(pPWM->priv, enable);
 }
 

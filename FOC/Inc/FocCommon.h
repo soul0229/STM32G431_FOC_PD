@@ -51,7 +51,7 @@
 bool Sensor_register(FOC_t *pFOC, const Sensor_t *pSensor, void *priv);
 bool Sensor_unregister(FOC_t *pFOC);
 
-bool Svpwm_register(FOC_t *pFOC, const PWM_Opt *pPWM_opts, void *priv);
+bool Svpwm_register(FOC_t *pFOC, const PWM_t *pPWM_opts);
 bool Svpwm_unregister(FOC_t *pFOC);
 
 bool RsSamp_register(FOC_t *pFOC, const ADC_t *pADC, const RsLPF_t *pLPF);

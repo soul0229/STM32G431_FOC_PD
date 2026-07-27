@@ -15,7 +15,7 @@ static bool RsSamp_init(void *this)
        pLPF->init(pLPF); 
     }
 
-    pRsSamp->toAmpere = 1.0f * 1000 * pADC->maxValue / pADC->maxValue / pADC->amplifier / pADC->mOhm ;
+    pRsSamp->toAmpere = 1.0f * 1000 * pADC->RefVolt / pADC->maxValue / pADC->amplifier / pADC->mOhm ;
 
     return true;
 }
