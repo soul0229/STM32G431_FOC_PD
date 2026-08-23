@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include "FocCommon.h"
 #include "Motor.h"
+#include "ThreePhaseHall.h"
 
 extern const Sensor_t sensor;
 
@@ -74,20 +75,17 @@ static bool getRsSampleValue(void *this, int16_t *pADCValue)
 	pADCValue[RESISTOR_W] = HAL_ADCEx_InjectedGetValue(phadc,ADC_INJECTED_RANK_3);
 	if(pADC->Average_cnt < ADC_AVERAGE_NUM)
 	{
-		if(pADC->Average_cnt != 0)
+		pADC->offset[RESISTOR_U] += pADCValue[RESISTOR_U];
+		pADC->offset[RESISTOR_V] += pADCValue[RESISTOR_V];
+		pADC->offset[RESISTOR_W] += pADCValue[RESISTOR_W];
+
+		if(++(pADC->Average_cnt) == ADC_AVERAGE_NUM)
 		{
-			pADC->offset[RESISTOR_U] = (pADC->offset[RESISTOR_U] + pADCValue[RESISTOR_U]) / 2;
-			pADC->offset[RESISTOR_V] = (pADC->offset[RESISTOR_V] + pADCValue[RESISTOR_V]) / 2;
-			pADC->offset[RESISTOR_W] = (pADC->offset[RESISTOR_W] + pADCValue[RESISTOR_W]) / 2;
-		}
-		else 
-		{
-			pADC->offset[RESISTOR_U] = pADCValue[RESISTOR_U];
-			pADC->offset[RESISTOR_V] = pADCValue[RESISTOR_V];
-			pADC->offset[RESISTOR_W] = pADCValue[RESISTOR_W];
+			pADC->offset[RESISTOR_U] /= ADC_AVERAGE_NUM;
+			pADC->offset[RESISTOR_V] /= ADC_AVERAGE_NUM;
+			pADC->offset[RESISTOR_W] /= ADC_AVERAGE_NUM;
 		}
 
-		pADC->Average_cnt++;
 		return false;
 	}
 
@@ -153,13 +151,51 @@ static const RsLPF_t RsLPFcDefaultCfg =
 	.sampFreq 		= 20000
 };
 
+extern UART_HandleTypeDef huart1;
+const FocParam_t default_param = {.header  = 0x55aa,.tail = 0xaa55};
+FocParam_t param_buff[PRINTF_BUF_NUM * PRINTF_SUBBUF_NUM];
+FocParam_t *param = param_buff;
+
+void foc_call_back(void *this)
+{
+	static uint32_t counter = 0;
+	FOC_t *pFOC = this;
+	// Svpwm_t *pSvpwm     = pFOC->pSvpwm;
+    // RsSamp_t *pRsSamp   = pFOC->pRsSamp;
+    Sensor_t *pSensor   = pFOC->pSensor;
+	HallData_t 	*data 	= pSensor->priv_data;
+
+	// param->adc_value[0] = pRsSamp->sampValue[RESISTOR_U];
+    // param->adc_value[1] = pRsSamp->sampValue[RESISTOR_V];
+    // param->adc_value[2] = pRsSamp->sampValue[RESISTOR_W];
+
+	param->Id = pFOC->id;
+    param->Iq = pFOC->iq;
+
+	param->Id_out = pFOC->idPID.out;
+    param->Iq_out = pFOC->iqPID.out;
+
+	// param->angle		= *pSensor->angle;
+	// param->hall_angle 	= data->trans_state[0][data->dir][data->sector];
+	// param->dir			= data->dir;
+	// param->sector		= data->sector;
+
+	if((counter & PRINTF_SUBBUF_MASK) == (PRINTF_SUBBUF_MASK))
+    {
+        HAL_UART_Transmit(&huart1, (uint8_t*)(param - PRINTF_SUBBUF_MASK), sizeof(FocParam_t) * PRINTF_SUBBUF_NUM,100);
+    }
+    param = &param_buff[++counter & PRINTF_TOTAL_MASK];
+}
+
 /* init */
-FOC_t *motor_init(TIM_HandleTypeDef *htim, ADC_HandleTypeDef *hadc)
+FOC_t *motor_init(TIM_HandleTypeDef *htim, ADC_HandleTypeDef *hadc, void *sensor_priv)
 {
 	ADC_t ADC_cfg = adcDefaultCfg;
 	PWM_t PWM_cfg = pwmOptDefault;
+	Sensor_t sensor_cfg = sensor;
 	ADC_cfg.priv = hadc;
 	PWM_cfg.priv = htim;
+	sensor_cfg.priv = sensor_priv;
 
 	FOC_t *pFOC = (FOC_t*)malloc(sizeof(FOC_t));
 	if(pFOC == NULL)
@@ -178,15 +214,20 @@ FOC_t *motor_init(TIM_HandleTypeDef *htim, ADC_HandleTypeDef *hadc)
 		goto RsSamp_register_error;
 	}
 
-	if(!Sensor_register(pFOC, &sensor, NULL))
+	if(!Sensor_register(pFOC, &sensor_cfg, sensor_priv))
 	{
 		goto Sensor_register_error;
 	}
 
-	if(!FOC_init(pFOC))
+	if(!FOC_init(pFOC, foc_call_back))
 	{
 		goto FOC_init_error;
 	}
+
+	for(uint16_t cnt = 0; cnt < PRINTF_BUF_NUM * PRINTF_SUBBUF_NUM; cnt++)
+    {
+        param_buff[cnt] = default_param;
+    }
 
 	return pFOC;
 

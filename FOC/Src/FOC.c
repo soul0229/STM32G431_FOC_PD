@@ -1,14 +1,7 @@
 #include "FocCommon.h"
 #include "arm_math.h"
 
-extern UART_HandleTypeDef huart1;
-const FocParam_t default_param = {.header  = 0x55aa,.tail = 0xaa55};
-FocParam_t param_buff[PRINTF_BUF_NUM * PRINTF_SUBBUF_NUM];
-FocParam_t *param = param_buff;
-uint32_t counter = 0;
-
 void sin_cos_4096(uint16_t angle, float32_t *sine, float32_t *cosine);
-
 
 static void PID_Calc(PID_t *pid, float target, float present)
 {
@@ -48,6 +41,14 @@ static void ParkAntiTransform(FOC_t *pFOC)
     Svpwm_t *pSvpwm = pFOC->pSvpwm;
     float32_t sine, cosine;
     sin_cos_4096(pFOC->radian, &sine, &cosine);
+
+    float modulus = pFOC->iqPID.out * pFOC->iqPID.out + pFOC->idPID.out * pFOC->idPID.out;
+    if (modulus > pSvpwm->modulus_max) {
+        float scale = pSvpwm->modulus_max / modulus;
+        pFOC->idPID.out *= scale;
+        pFOC->iqPID.out *= scale;
+    }
+
     pSvpwm->u_alpha = pFOC->idPID.out * cosine - pFOC->iqPID.out * sine;
     pSvpwm->u_beta  = pFOC->idPID.out * sine + pFOC->iqPID.out * cosine;
 }
@@ -58,7 +59,12 @@ static void MotorEnable(void *this, bool enable)
     pPWM->enable(pPWM->priv, enable);
 }
 
-bool FOC_init(FOC_t *pFOC)
+static void call_back(void *this)
+{
+
+}
+
+bool FOC_init(FOC_t *pFOC, cb_t *cb)
 {
     if(pFOC == NULL)
     {
@@ -77,30 +83,32 @@ bool FOC_init(FOC_t *pFOC)
     pFOC->idPID.kp = 5.000f;
     pFOC->idPID.ki = 0.0001f;
     pFOC->idPID.kd = 0.0001f;
-    pFOC->idPID.outMax = 2.6f;
+    pFOC->idPID.outMax = 3.0f;
 
-    pFOC->iqPID.kp = 10.0f;
-    pFOC->iqPID.ki = 0.01f;
-    pFOC->iqPID.kd = 0.00001f;
-    pFOC->iqPID.outMax = 2.6f;
+    pFOC->iqPID.kp = 20.0f;
+    pFOC->iqPID.ki = 1.0f;
+    pFOC->iqPID.kd = 1.0f;
+    pFOC->iqPID.outMax = 3.0f;
 
     pFOC->EnableMotor = MotorEnable;
     pFOC->pSvpwm->Init(pFOC->pSvpwm);
     pFOC->pRsSamp->init(pFOC->pRsSamp);
+    pFOC->tar_iq = 0.75f;
     if(pFOC->pSensor != NULL)
     {
         pFOC->pSensor->init(pFOC->pSensor);
     }
 
-    for(uint16_t cnt = 0; cnt < PRINTF_BUF_NUM * PRINTF_SUBBUF_NUM; cnt++)
+    pFOC->callback = call_back;
+    if(cb)
     {
-        param_buff[cnt] = default_param;
+        pFOC->callback = cb;
     }
 
     return true;
 }
 
-void FocControl(FOC_t *pFOC)
+void Foc_Process(FOC_t *pFOC)
 {
     if(pFOC == NULL)
     {
@@ -118,15 +126,15 @@ void FocControl(FOC_t *pFOC)
 
     pSensor->getAngle(pSensor);
 
-    pFOC->ia = param->adc_value[0] = pRsSamp->sampValue[RESISTOR_U];
-    pFOC->ib = param->adc_value[1] = pRsSamp->sampValue[RESISTOR_V];
-    pFOC->ic = param->adc_value[2] = pRsSamp->sampValue[RESISTOR_W];
+    pFOC->ia = pRsSamp->sampValue[RESISTOR_U];
+    pFOC->ib = pRsSamp->sampValue[RESISTOR_V];
+    pFOC->ic = pRsSamp->sampValue[RESISTOR_W];
 
     ClarkeTransform(pFOC);
     ParkTransform(pFOC);
 
-    param->Id = pFOC->id = pFOC->id * pRsSamp->toAmpere;
-    param->Iq = pFOC->iq = pFOC->iq * pRsSamp->toAmpere;
+    pFOC->id = pFOC->id * pRsSamp->toAmpere;
+    pFOC->iq = pFOC->iq * pRsSamp->toAmpere;
 
     PID_Calc(&pFOC->idPID, pFOC->tar_id, pFOC->id);
     PID_Calc(&pFOC->iqPID, pFOC->tar_iq, pFOC->iq);
@@ -137,11 +145,7 @@ void FocControl(FOC_t *pFOC)
     pSvpwm->VectorTime(pSvpwm);
     pSvpwm->Generate(pSvpwm);
 
-    if((counter & PRINTF_SUBBUF_MASK) == (PRINTF_SUBBUF_MASK))
-    {
-        HAL_UART_Transmit_DMA(&huart1, (uint8_t*)(param - PRINTF_SUBBUF_MASK), sizeof(FocParam_t) * PRINTF_SUBBUF_NUM);
-    }
-    param = &param_buff[++counter & PRINTF_TOTAL_MASK];
+    pFOC->callback(pFOC);
 }
 
 

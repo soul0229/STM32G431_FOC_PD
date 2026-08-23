@@ -28,8 +28,8 @@ typedef struct
     float       amplifier;
     float       RefVolt;
     uint16_t    maxValue;
-    uint16_t    offset[RESISTOR_MAX];
     uint16_t    Average_cnt;
+    uint32_t    offset[RESISTOR_MAX];
     uint8_t     mOhm;
 } ADC_t;
 

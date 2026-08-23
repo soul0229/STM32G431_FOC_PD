@@ -127,7 +127,7 @@ int main(void)
   }
 
   // FOC_motor[0] = motor_init(&htim1, &hadc1);
-  FOC_motor[1] = motor_init(&htim8, &hadc2);
+  FOC_motor[1] = motor_init(&htim8, &hadc2, &htim2);
   // HAL_CORDIC_Calculate_DMA();
   /* USER CODE END 2 */
 
@@ -194,10 +194,12 @@ void SystemClock_Config(void)
 /* USER CODE BEGIN 4 */
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) 
 {
-  if(htim == &htim2)
+  if(htim == FOC_motor[1]->pSensor->priv)
   {
-    FOC_motor[1]->pSensor->update(FOC_motor[1]->pSensor, (void*)0, 1);
-    // if(htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1)
+    uint8_t sector[1] = {HALL1_U_GPIO_Port->IDR & 0x7};
+    FOC_motor[1]->pSensor->update(FOC_motor[1]->pSensor, sector, 1);
+
+    // // if(htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1)
     //   param.speed = HAL_TIM_ReadCapturedValue(&htim2, TIM_CHANNEL_1);
     // param.HallA[2] = HAL_GPIO_ReadPin(HALL1_U_GPIO_Port, HALL1_U_Pin);
     // param.HallA[1] = HAL_GPIO_ReadPin(HALL1_V_GPIO_Port, HALL1_V_Pin);
@@ -215,11 +217,11 @@ void HAL_ADCEx_InjectedConvCpltCallback(ADC_HandleTypeDef *hadc)
 {
     if(hadc == FOC_motor[1]->pRsSamp->pADC->priv)
     {
-      FocControl(FOC_motor[1]);
+      Foc_Process(FOC_motor[1]);
     }
     else if(hadc == FOC_motor[0]->pRsSamp->pADC->priv)
     {
-      FocControl(FOC_motor[0]);
+      Foc_Process(FOC_motor[0]);
     }
 }
 

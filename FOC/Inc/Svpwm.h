@@ -42,6 +42,8 @@ typedef struct
     void (*VectorTime)(void *this);
     void (*Generate)(void *this);
 
+    float modulus_max;
+
     float u_alpha;
     float u_beta;
     float u1;
@@ -67,12 +69,18 @@ typedef struct
 Svpwm_t *Svpwm_init(PWM_t *pPWM_opts, void *priv);
 void Svpwm_deinit(Svpwm_t *pSvpwm);
 
-typedef struct {
-	uint16_t header;
-    int16_t adc_value[3];
-    float   Id;
-    float   Iq;
-    uint16_t tail;
+typedef struct __attribute__((packed))
+{
+	uint16_t    header;
+    float       Id;
+    float       Iq;
+    float       Id_out;
+    float       Iq_out;
+    // uint16_t    angle;
+    // uint16_t    hall_angle;
+    // uint8_t     sector;
+    // int8_t      dir;
+    uint16_t    tail;
 } FocParam_t;
 
 #endif /* Svpwm_h */

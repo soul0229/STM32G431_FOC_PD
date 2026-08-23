@@ -29,16 +29,17 @@ typedef enum
     PHASE_NUM
 } Ampere_Phase_t;
 
+
+typedef void(cb_t)(void *this);
+
 typedef struct
 {
     bool        isEnable;
-    uint8_t     polePairs;
-	
 	uint8_t     rNum;
+    
     int16_t     ia;
     int16_t     ib;
 	int16_t     ic;
-
     float       iAlpha;
     float       iBeta;
     float       iq;
@@ -58,6 +59,7 @@ typedef struct
     void        (*EnableMotor)(void *this, bool);
     float       (*GetEncoderAngle)(void *this);
     void        (*GetPreCurrent)(void *this);
+    cb_t        *callback;
 } FOC_t;
 
 extern volatile uint32_t gFoc_TimeCNT;

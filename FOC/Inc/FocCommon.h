@@ -21,30 +21,13 @@
 //#include "arm_math.h"
 #define USE_SINCOS_TAB
 
-#define MAX_PWM_OUT				20000
-#define LIM_PWM_OUT				20000
-#define MIN_PWM_OUT				0
-#define ADC_DELAY_TIM			50
-
-#define LIMIT(x,min,max)		((x>max)?max:((x<=min)?min:x))
-
-#define PWM_LIMIT(x)			LIMIT(x,MIN_PWM_OUT,LIM_PWM_OUT)
-
 #define FLOAT_PI                3.1415926535f
 #define FLOAT_SQRT3 			1.732050808f
 #define FLOAT_SQRT3_2 			0.866025404f
 #define FLOAT_SQRT3_3 			0.577350269f
-#define IDIQ_MAX 				FLOAT_SQRT3_3
 
-#define ADC_FILTER_KP 			0.8f
-#define RESIST_NUM 				3
-#define POWER_ADC_NUM 			1
-#define ADC_NUM 				(RESIST_NUM + POWER_ADC_NUM)
-
-#define POPLE_PAIRS				4
-
-#define PRINTF_BUF_NUM          2
-#define PRINTF_SUBBUF_NUM       256
+#define PRINTF_BUF_NUM          8
+#define PRINTF_SUBBUF_NUM       32
 #define PRINTF_SUBBUF_MASK      (PRINTF_SUBBUF_NUM - 1)
 #define PRINTF_TOTAL_MASK       (PRINTF_SUBBUF_NUM * PRINTF_BUF_NUM - 1)
 
@@ -57,8 +40,8 @@ bool Svpwm_unregister(FOC_t *pFOC);
 bool RsSamp_register(FOC_t *pFOC, const ADC_t *pADC, const RsLPF_t *pLPF);
 bool RsSamp_unregister(FOC_t *pFOC);
 
-bool FOC_init(FOC_t *pFOC);
-void FocControl(FOC_t *pFOC);
+bool FOC_init(FOC_t *pFOC, cb_t *cb);
+void Foc_Process(FOC_t *pFOC);
 extern FocParam_t *param;
 
 

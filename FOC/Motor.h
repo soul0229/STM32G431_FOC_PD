@@ -6,7 +6,7 @@
 
 extern FocParam_t *param;
 
-#define ADC_AVERAGE_NUM         (1024)
+#define ADC_AVERAGE_NUM         (2048)
 
-FOC_t *motor_init(TIM_HandleTypeDef *htim, ADC_HandleTypeDef *hadc);
+FOC_t *motor_init(TIM_HandleTypeDef *htim, ADC_HandleTypeDef *hadc, void *sensor_priv);
 #endif

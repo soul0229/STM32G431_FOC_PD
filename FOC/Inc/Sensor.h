@@ -12,17 +12,17 @@ typedef enum
 
 typedef enum
 {
-    
+    DIR_BACKWARD    = -1,
     DIR_INVALID     = 0,
     DIR_FORWARD     = 1,
-    DIR_BACKWARD    = 2,
-    DIR_MAX
+    DIR_MAX         = 3
 } Direction_t;
 
 typedef struct
 {
     void            *priv;
     SensorType_t    type;
+    uint8_t         polePairs;
     bool            (*init)(void *this);
     void            (*update)(void *this, void *priv, uint16_t);
     bool            (*getAngle)(void *this);

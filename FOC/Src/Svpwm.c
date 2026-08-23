@@ -11,6 +11,8 @@ static void SvpwmInit(void *this)
     Svpwm_t *pSvpwm = this;
 	PWM_t *pPWM     = pSvpwm->pPWM;
 
+    pSvpwm->modulus_max = pPWM->udc * pPWM->udc / 3.0f;
+
     pSvpwm->ts = pPWM->cycle * 0.95f;
     pSvpwm->tk = FLOAT_SQRT3 * pSvpwm->ts / pPWM->udc;
     memset(pSvpwm->phasePWM, 0x00, sizeof(pSvpwm->phasePWM));
