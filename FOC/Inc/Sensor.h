@@ -24,6 +24,7 @@ typedef struct
     SensorType_t    type;
     uint8_t         polePairs;
     bool            (*init)(void *this);
+    void            (*init_cb)(void *this);    
     void            (*update)(void *this, void *priv, uint16_t);
     bool            (*getAngle)(void *this);
     uint16_t        *angle;

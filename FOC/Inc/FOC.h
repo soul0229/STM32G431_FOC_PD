@@ -3,7 +3,6 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "stm32g4xx_hal_flash.h"
 #include "Svpwm.h"
 #include "Sensor.h"
 #include "RsSamp.h"
@@ -40,8 +39,10 @@ typedef struct
     int16_t     ia;
     int16_t     ib;
 	int16_t     ic;
-    float       iAlpha;
-    float       iBeta;
+
+    int16_t     iAlpha;
+    int16_t     iBeta;
+
     float       iq;
     float       id;
 
@@ -56,18 +57,13 @@ typedef struct
     Svpwm_t     *pSvpwm;
     RsSamp_t    *pRsSamp;
     Sensor_t    *pSensor;
-    void        (*EnableMotor)(void *this, bool);
+    void        (*sin_cos_65536)(uint16_t angle, float *sine, float *cosine);
+    void        (*Enable)(void *this);
     float       (*GetEncoderAngle)(void *this);
     void        (*GetPreCurrent)(void *this);
     cb_t        *callback;
 } FOC_t;
 
-extern volatile uint32_t gFoc_TimeCNT;
-
-
-
-extern ADC_HandleTypeDef ADC_PORT;
-// extern int16_t ADC_offset[2][RESIST_NUM];
-extern int16_t *ADC_Point;
+void sin_cos_65536(uint16_t angle, float *sine, float *cosine);
 
 #endif /* FOC_h */

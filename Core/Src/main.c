@@ -19,19 +19,15 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "adc.h"
-#include "cordic.h"
 #include "dma.h"
-#include "fmac.h"
 #include "tim.h"
 #include "usart.h"
-#include "usb_device.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "Motor.h"
+#include "Motor_port_template_G431.h"
 #include <stdint.h>
-#include <arm_math.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -51,11 +47,9 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-const uint16_t delay_ms[] = {100, 100, 100, 700};
-
-CORDIC_ConfigTypeDef sCordicConfig;
+static const uint16_t delay_ms[] = {100, 100, 100, 700};
+static uint8_t delay_idx = 0;
 FOC_t *FOC_motor[4] = {NULL};
-uint8_t cnt = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -100,43 +94,24 @@ int main(void)
   MX_DMA_Init();
   MX_ADC1_Init();
   MX_ADC2_Init();
-  MX_CORDIC_Init();
-  MX_FMAC_Init();
   MX_TIM1_Init();
   MX_TIM2_Init();
   MX_TIM3_Init();
   MX_TIM8_Init();
   MX_USART3_UART_Init();
-  MX_USB_Device_Init();
   MX_USART1_UART_Init();
+  MX_USB_PCD_Init();
   /* USER CODE BEGIN 2 */
-
-  /*##-2- Configure the CORDIC peripheral ####################################*/
-  sCordicConfig.Function         = CORDIC_FUNCTION_SINE;     /* sine function */
-  sCordicConfig.Precision        = CORDIC_PRECISION_6CYCLES; /* max precision for q1.31 sine */
-  sCordicConfig.Scale            = CORDIC_SCALE_0;           /* no scale */
-  sCordicConfig.NbWrite          = CORDIC_NBWRITE_1;         /* One input data: angle. Second input data (modulus) is 1 after cordic reset */
-  sCordicConfig.NbRead           = CORDIC_NBREAD_2;          /* Two output data: sine then cosine */
-  sCordicConfig.InSize           = CORDIC_INSIZE_32BITS;     /* q1.31 format for input data */
-  sCordicConfig.OutSize          = CORDIC_OUTSIZE_32BITS;    /* q1.31 format for output data */
-
-  if (HAL_CORDIC_Configure(&hcordic, &sCordicConfig) != HAL_OK)
-  {
-    /* Configuration Error */
-    Error_Handler();
-  }
-
-  // FOC_motor[0] = motor_init(&htim1, &hadc1);
+  // FOC_motor[0] = motor_init(&htim1, &hadc1, NULL);
   FOC_motor[1] = motor_init(&htim8, &hadc2, &htim2);
-  // HAL_CORDIC_Calculate_DMA();
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    HAL_Delay(delay_ms[cnt++&0x3]);
     HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+    HAL_Delay(delay_ms[delay_idx++&0x3]);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -213,7 +188,7 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
   }
 }
 
-void HAL_ADCEx_InjectedConvCpltCallback(ADC_HandleTypeDef *hadc)
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
 {
     if(hadc == FOC_motor[1]->pRsSamp->pADC->priv)
     {
@@ -225,25 +200,19 @@ void HAL_ADCEx_InjectedConvCpltCallback(ADC_HandleTypeDef *hadc)
     }
 }
 
-bool state = true;
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
 
   if(GPIO_Pin == KEY0_Pin)
   {
-    // FOC_motor[0]->EnableMotor(FOC_motor[0], state);
-    // state = state?false:true;
     FOC_motor[1]->tar_iq -= 0.25;
   }
   else if(GPIO_Pin == KEY1_Pin)
   {
-    FOC_motor[1]->EnableMotor(FOC_motor[1], state);
-    state = state?false:true;
+    FOC_motor[1]->Enable(FOC_motor[1]);
 	}
   else if(GPIO_Pin == KEY2_Pin)
   {
-    // FOC_motor[0]->EnableMotor(FOC_motor[0], state);
-    // state = state?false:true;
     FOC_motor[1]->tar_iq += 0.25;
   }
 }

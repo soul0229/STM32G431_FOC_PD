@@ -1,7 +1,4 @@
 #include "FocCommon.h"
-#include "arm_math.h"
-
-void sin_cos_4096(uint16_t angle, float32_t *sine, float32_t *cosine);
 
 static void PID_Calc(PID_t *pid, float target, float present)
 {
@@ -30,8 +27,8 @@ static void ClarkeTransform(FOC_t *pFOC)
 
 static void ParkTransform(FOC_t *pFOC)
 {
-    float32_t sine, cosine;
-    sin_cos_4096(pFOC->radian, &sine, &cosine);
+    float sine, cosine;
+    pFOC->sin_cos_65536(pFOC->radian, &sine, &cosine);
     pFOC->id = pFOC->iAlpha * cosine  + pFOC->iBeta * sine;
     pFOC->iq = -pFOC->iAlpha * sine  + pFOC->iBeta * cosine;
 }
@@ -39,8 +36,8 @@ static void ParkTransform(FOC_t *pFOC)
 static void ParkAntiTransform(FOC_t *pFOC)
 {
     Svpwm_t *pSvpwm = pFOC->pSvpwm;
-    float32_t sine, cosine;
-    sin_cos_4096(pFOC->radian, &sine, &cosine);
+    float sine, cosine;
+    pFOC->sin_cos_65536(pFOC->radian, &sine, &cosine);
 
     float modulus = pFOC->iqPID.out * pFOC->iqPID.out + pFOC->idPID.out * pFOC->idPID.out;
     if (modulus > pSvpwm->modulus_max) {
@@ -53,10 +50,13 @@ static void ParkAntiTransform(FOC_t *pFOC)
     pSvpwm->u_beta  = pFOC->idPID.out * sine + pFOC->iqPID.out * cosine;
 }
 
-static void MotorEnable(void *this, bool enable)
+static void MotorEnable(void *this)
 {
-    PWM_t *pPWM =  ((FOC_t*)this)->pSvpwm->pPWM;
-    pPWM->enable(pPWM->priv, enable);
+    FOC_t *pFOC = (FOC_t *)this;
+    PWM_t *pPWM =  pFOC->pSvpwm->pPWM;
+
+    pFOC->isEnable = pFOC->isEnable?false:true;
+    pPWM->enable(pPWM->priv, pFOC->isEnable);
 }
 
 static void call_back(void *this)
@@ -71,14 +71,9 @@ bool FOC_init(FOC_t *pFOC, cb_t *cb)
         return false;
     }
 
-    if(!pFOC->pSvpwm || !pFOC->pRsSamp)
-    {
-        return false;
-    }
-
     memset(&pFOC->idPID, 0x00, sizeof(pFOC->idPID));
     memset(&pFOC->iqPID, 0x00, sizeof(pFOC->iqPID));
-    // pFOC->GetPreCurrent = ADCGetPreCurrent;
+
     pFOC->rNum = 3;
     pFOC->idPID.kp = 5.000f;
     pFOC->idPID.ki = 0.0001f;
@@ -90,10 +85,25 @@ bool FOC_init(FOC_t *pFOC, cb_t *cb)
     pFOC->iqPID.kd = 1.0f;
     pFOC->iqPID.outMax = 3.0f;
 
-    pFOC->EnableMotor = MotorEnable;
-    pFOC->pSvpwm->Init(pFOC->pSvpwm);
-    pFOC->pRsSamp->init(pFOC->pRsSamp);
-    pFOC->tar_iq = 0.75f;
+    pFOC->tar_iq = 0.3f;
+
+    pFOC->Enable = MotorEnable;
+
+    if(pFOC->sin_cos_65536 == NULL)
+    {
+        pFOC->sin_cos_65536 = sin_cos_65536;
+    }
+
+    if(pFOC->pSvpwm != NULL)
+    {
+        pFOC->pSvpwm->init(pFOC->pSvpwm);
+    }
+
+    if(pFOC->pRsSamp != NULL)
+    {
+        pFOC->pRsSamp->init(pFOC->pRsSamp);
+    }
+
     if(pFOC->pSensor != NULL)
     {
         pFOC->pSensor->init(pFOC->pSensor);
@@ -119,31 +129,48 @@ void Foc_Process(FOC_t *pFOC)
     RsSamp_t *pRsSamp   = pFOC->pRsSamp;
     Sensor_t *pSensor   = pFOC->pSensor;
 
-    if(!pRsSamp->getAmpere(pRsSamp))
+    if(pRsSamp)
     {
-        return;
+        if(!pRsSamp->getAmpere(pRsSamp))
+        {
+            return;
+        }
     }
 
-    pSensor->getAngle(pSensor);
+    // if(pSensor)
+    // {
+    //     pSensor->getAngle(pSensor);
+    // }
+    // else 
+    {
+        pFOC->radian += 64;
+    }
 
-    pFOC->ia = pRsSamp->sampValue[RESISTOR_U];
-    pFOC->ib = pRsSamp->sampValue[RESISTOR_V];
-    pFOC->ic = pRsSamp->sampValue[RESISTOR_W];
 
-    ClarkeTransform(pFOC);
-    ParkTransform(pFOC);
+    // pFOC->ia = pRsSamp->currect[RESISTOR_U];
+    // pFOC->ib = pRsSamp->currect[RESISTOR_V];
+    // pFOC->ic = pRsSamp->currect[RESISTOR_W];
 
-    pFOC->id = pFOC->id * pRsSamp->toAmpere;
-    pFOC->iq = pFOC->iq * pRsSamp->toAmpere;
+    // ClarkeTransform(pFOC);
+    // ParkTransform(pFOC);
 
-    PID_Calc(&pFOC->idPID, pFOC->tar_id, pFOC->id);
-    PID_Calc(&pFOC->iqPID, pFOC->tar_iq, pFOC->iq);
+    // pFOC->id = pFOC->id * pRsSamp->toAmpere;
+    // pFOC->iq = pFOC->iq * pRsSamp->toAmpere;
+
+    // PID_Calc(&pFOC->idPID, pFOC->tar_id, pFOC->id);
+    // PID_Calc(&pFOC->iqPID, pFOC->tar_iq, pFOC->iq);
+
+    pFOC->idPID.out = 0.0f;
+    pFOC->iqPID.out = 0.5f;
 
     ParkAntiTransform(pFOC);
     
-    pSvpwm->SectorJudgment(pSvpwm);
-    pSvpwm->VectorTime(pSvpwm);
-    pSvpwm->Generate(pSvpwm);
+    if(pSvpwm)
+    {
+        pSvpwm->sectorJudgment(pSvpwm);
+        pSvpwm->vectorTime(pSvpwm);
+        pSvpwm->generate(pSvpwm);
+    }
 
     pFOC->callback(pFOC);
 }

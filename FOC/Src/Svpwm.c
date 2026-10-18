@@ -17,7 +17,7 @@ static void SvpwmInit(void *this)
     pSvpwm->tk = FLOAT_SQRT3 * pSvpwm->ts / pPWM->udc;
     memset(pSvpwm->phasePWM, 0x00, sizeof(pSvpwm->phasePWM));
     pSvpwm->phasePWM[PHASE_INT] = (pSvpwm->ts + pPWM->cycle) / 2;
-	pPWM->SetPWM(pPWM->priv, pSvpwm->phasePWM);
+	pPWM->setPWM(pPWM->priv, pSvpwm->phasePWM);
 	pPWM->enable(pPWM->priv, false);
 }
 
@@ -31,9 +31,9 @@ static void SvpwmSectorJudgment(void *this)
     u_beta          = pSvpwm->u_beta;
     u_beta_2        = u_beta / 2;
 
-    pSvpwm->u1 = u_beta;
-    pSvpwm->u2 = u_alpha_sqrt3_2 - u_beta_2;
-    pSvpwm->u3 = -u_alpha_sqrt3_2 - u_beta_2;
+    pSvpwm->u1      = u_beta;
+    pSvpwm->u2      = u_alpha_sqrt3_2 - u_beta_2;
+    pSvpwm->u3      = -u_alpha_sqrt3_2 - u_beta_2;
 
     pSvpwm->sector = sector_judg[(U[0] >> 31) | ((U[1] & 0x80000000) >> 30) | ((U[2] & 0x80000000) >> 29)];
 }
@@ -134,7 +134,7 @@ static void SvpwmGenerate(void *this)
 {
     Svpwm_t *pSvpwm = this;
     PWM_t *pPWM = pSvpwm->pPWM;
-    pPWM->SetPWM(pPWM->priv, pSvpwm->phasePWM);
+    pPWM->setPWM(pPWM->priv, pSvpwm->phasePWM);
 }
 
 bool Svpwm_register(FOC_t *pFOC, const PWM_t *pPWM)
@@ -144,7 +144,7 @@ bool Svpwm_register(FOC_t *pFOC, const PWM_t *pPWM)
         goto pointer_check_fail;
     }
 
-    if(pPWM->enable == NULL || pPWM->SetPWM == NULL || pPWM->priv == NULL)
+    if(pPWM->enable == NULL || pPWM->setPWM == NULL || pPWM->priv == NULL)
     {
         goto pointer_check_fail;
     }
@@ -162,10 +162,10 @@ bool Svpwm_register(FOC_t *pFOC, const PWM_t *pPWM)
     }
     *pSvpwm->pPWM           = *pPWM;
 
-    pSvpwm->Init            = SvpwmInit,
-    pSvpwm->SectorJudgment  = SvpwmSectorJudgment,
-    pSvpwm->VectorTime      = GetVectorDuration,
-    pSvpwm->Generate        = SvpwmGenerate,
+    pSvpwm->init            = SvpwmInit,
+    pSvpwm->sectorJudgment  = SvpwmSectorJudgment,
+    pSvpwm->vectorTime      = GetVectorDuration,
+    pSvpwm->generate        = SvpwmGenerate,
 
     pFOC->pSvpwm = pSvpwm;
 

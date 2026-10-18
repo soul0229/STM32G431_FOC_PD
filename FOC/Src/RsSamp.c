@@ -27,10 +27,10 @@ static bool RsSample_getAmpere(void *this)
     ADC_t *pADC         = pRsSamp->pADC;
     RsLPF_t *pLPF       = pRsSamp->pFilter;
 
-    status = pADC->getSample(pADC, pRsSamp->sampValue);
+    status = pADC->getSample(pADC, pRsSamp->currect);
     if(pLPF)
     {
-        pLPF->fliter(pLPF, pRsSamp->sampValue);
+        pLPF->fliter(pLPF, pRsSamp->currect);
     }
     return status;
 }

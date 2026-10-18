@@ -30,7 +30,9 @@ typedef struct
     uint16_t    maxValue;
     uint16_t    Average_cnt;
     uint32_t    offset[RESISTOR_MAX];
+    uint16_t    sampValue[RESISTOR_MAX];
     uint8_t     mOhm;
+    uint8_t     resistor_num;
 } ADC_t;
 
 typedef struct
@@ -39,8 +41,8 @@ typedef struct
     RsLPF_t     *pFilter;
     bool        (*init)(void *this);
     bool        (*getAmpere)(void *this);
-    int16_t     sampValue[RESISTOR_MAX];
     float       toAmpere;
+    int16_t     currect[RESISTOR_MAX];
 } RsSamp_t;
 
 

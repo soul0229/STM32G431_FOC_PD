@@ -2,9 +2,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-extern FocParam_t *param;
-
-static const int8_t hall_dir_map[MAX_SECTOR][MAX_SECTOR] = {
+static const int8_t hall_dir_map[MAX_SECTOR][MAX_SECTOR] = 
+{
 	[SECTOR_1] = {[SECTOR_3] = DIR_BACKWARD, [SECTOR_5] = DIR_FORWARD},
 	[SECTOR_5] = {[SECTOR_1] = DIR_BACKWARD, [SECTOR_4] = DIR_FORWARD},
 	[SECTOR_4] = {[SECTOR_5] = DIR_BACKWARD, [SECTOR_6] = DIR_FORWARD},
@@ -31,7 +30,10 @@ static bool three_phase_hall_init(void *this)
 
 	pSensor->priv_data = priv_data;
 
-	HAL_TIMEx_HallSensor_Start_IT(pSensor->priv);
+	if(pSensor->init_cb)
+	{
+		pSensor->init_cb(pSensor);
+	}
 
 	return true;
 }
@@ -94,5 +96,4 @@ const Sensor_t sensor =
 	.getAngle 	= three_phase_hall_get_angle,
 	.polePairs	= 6
 };
-
 
