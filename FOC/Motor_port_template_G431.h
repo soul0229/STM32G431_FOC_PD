@@ -8,7 +8,7 @@
 #define ADC_AVERAGE_NUM         (16)
 
 #define PRINTF_BUF_NUM          2
-#define PRINTF_SUBBUF_NUM       16
+#define PRINTF_SUBBUF_NUM       256
 #define PRINTF_SUBBUF_MASK      (PRINTF_SUBBUF_NUM - 1)
 #define PRINTF_TOTAL_MASK       (PRINTF_SUBBUF_NUM * PRINTF_BUF_NUM - 1)
 

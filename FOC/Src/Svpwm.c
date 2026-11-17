@@ -1,8 +1,5 @@
 #include "FocCommon.h"
 #include "Svpwm.h"
-#include <stdbool.h>
-#include <stdint.h>
-#include <string.h>
 
 static const uint8_t sector_judg[MAX_SECTOR] = {0, SECTOR_5, SECTOR_3, SECTOR_4, SECTOR_1, SECTOR_6, SECTOR_2, 0};
 
@@ -25,15 +22,13 @@ static void SvpwmSectorJudgment(void *this)
 {
     Svpwm_t *pSvpwm = this;
     uint32_t *U = (uint32_t *)&pSvpwm->u1;
-    float u_alpha_sqrt3_2, u_beta, u_beta_2;
+    float u_alpha_sqrt3_2   = pSvpwm->u_alpha * FLOAT_SQRT3_2;
+    float u_beta            = pSvpwm->u_beta;
+    float u_beta_2          = u_beta / 2;
 
-    u_alpha_sqrt3_2 = pSvpwm->u_alpha * FLOAT_SQRT3_2;
-    u_beta          = pSvpwm->u_beta;
-    u_beta_2        = u_beta / 2;
-
-    pSvpwm->u1      = u_beta;
-    pSvpwm->u2      = u_alpha_sqrt3_2 - u_beta_2;
-    pSvpwm->u3      = -u_alpha_sqrt3_2 - u_beta_2;
+    pSvpwm->u1              = u_beta;
+    pSvpwm->u2              = u_alpha_sqrt3_2 - u_beta_2;
+    pSvpwm->u3              = -u_alpha_sqrt3_2 - u_beta_2;
 
     pSvpwm->sector = sector_judg[(U[0] >> 31) | ((U[1] & 0x80000000) >> 30) | ((U[2] & 0x80000000) >> 29)];
 }

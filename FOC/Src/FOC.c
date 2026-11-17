@@ -19,22 +19,25 @@ static void PID_Calc(PID_t *pid, float target, float present)
     pid->iSum = pid->kb *(pid->out - temp) + pid->ki * bias;
 }
 
-static void ClarkeTransform(FOC_t *pFOC)
+static void ClarkeTransform(void *this)
 {
+    FOC_t *pFOC = (FOC_t *)this;
     pFOC->iAlpha = pFOC->ia;
     pFOC->iBeta = (pFOC->ia + 2.0f * pFOC->ib) * FLOAT_SQRT3_3;
 }
 
-static void ParkTransform(FOC_t *pFOC)
+static void ParkTransform(void *this)
 {
+    FOC_t *pFOC = (FOC_t *)this;
     float sine, cosine;
     pFOC->sin_cos_65536(pFOC->radian, &sine, &cosine);
     pFOC->id = pFOC->iAlpha * cosine  + pFOC->iBeta * sine;
     pFOC->iq = -pFOC->iAlpha * sine  + pFOC->iBeta * cosine;
 }
 
-static void ParkAntiTransform(FOC_t *pFOC)
+static void ParkAntiTransform(void *this)
 {
+    FOC_t *pFOC = (FOC_t *)this;
     Svpwm_t *pSvpwm = pFOC->pSvpwm;
     float sine, cosine;
     pFOC->sin_cos_65536(pFOC->radian, &sine, &cosine);
@@ -59,67 +62,14 @@ static void MotorEnable(void *this)
     pPWM->enable(pPWM->priv, pFOC->isEnable);
 }
 
-static void call_back(void *this)
+static void CallBack(void *this)
 {
 
 }
 
-bool FOC_init(FOC_t *pFOC, cb_t *cb)
+static void FocProcess(void *this)
 {
-    if(pFOC == NULL)
-    {
-        return false;
-    }
-
-    memset(&pFOC->idPID, 0x00, sizeof(pFOC->idPID));
-    memset(&pFOC->iqPID, 0x00, sizeof(pFOC->iqPID));
-
-    pFOC->rNum = 3;
-    pFOC->idPID.kp = 5.000f;
-    pFOC->idPID.ki = 0.0001f;
-    pFOC->idPID.kd = 0.0001f;
-    pFOC->idPID.outMax = 3.0f;
-
-    pFOC->iqPID.kp = 20.0f;
-    pFOC->iqPID.ki = 1.0f;
-    pFOC->iqPID.kd = 1.0f;
-    pFOC->iqPID.outMax = 3.0f;
-
-    pFOC->tar_iq = 0.3f;
-
-    pFOC->Enable = MotorEnable;
-
-    if(pFOC->sin_cos_65536 == NULL)
-    {
-        pFOC->sin_cos_65536 = sin_cos_65536;
-    }
-
-    if(pFOC->pSvpwm != NULL)
-    {
-        pFOC->pSvpwm->init(pFOC->pSvpwm);
-    }
-
-    if(pFOC->pRsSamp != NULL)
-    {
-        pFOC->pRsSamp->init(pFOC->pRsSamp);
-    }
-
-    if(pFOC->pSensor != NULL)
-    {
-        pFOC->pSensor->init(pFOC->pSensor);
-    }
-
-    pFOC->callback = call_back;
-    if(cb)
-    {
-        pFOC->callback = cb;
-    }
-
-    return true;
-}
-
-void Foc_Process(FOC_t *pFOC)
-{
+    FOC_t *pFOC = (FOC_t *)this;
     if(pFOC == NULL)
     {
         return;
@@ -151,8 +101,8 @@ void Foc_Process(FOC_t *pFOC)
     // pFOC->ib = pRsSamp->currect[RESISTOR_V];
     // pFOC->ic = pRsSamp->currect[RESISTOR_W];
 
-    // ClarkeTransform(pFOC);
-    // ParkTransform(pFOC);
+    // pFOC->ClarkeTransform(pFOC);
+    // pFOC->ParkTransform(pFOC);
 
     // pFOC->id = pFOC->id * pRsSamp->toAmpere;
     // pFOC->iq = pFOC->iq * pRsSamp->toAmpere;
@@ -163,7 +113,7 @@ void Foc_Process(FOC_t *pFOC)
     pFOC->idPID.out = 0.0f;
     pFOC->iqPID.out = 0.5f;
 
-    ParkAntiTransform(pFOC);
+    pFOC->ParkAntiTransform(pFOC);
     
     if(pSvpwm)
     {
@@ -174,5 +124,66 @@ void Foc_Process(FOC_t *pFOC)
 
     pFOC->callback(pFOC);
 }
+
+bool FOC_init(FOC_t *pFOC, cb_t *cb)
+{
+    if(pFOC == NULL)
+    {
+        return false;
+    }
+
+    memset(&pFOC->idPID, 0x00, sizeof(pFOC->idPID));
+    memset(&pFOC->iqPID, 0x00, sizeof(pFOC->iqPID));
+
+    pFOC->rNum = 3;
+    pFOC->idPID.kp = 5.000f;
+    pFOC->idPID.ki = 0.0001f;
+    pFOC->idPID.kd = 0.0001f;
+    pFOC->idPID.outMax = 3.0f;
+
+    pFOC->iqPID.kp = 20.0f;
+    pFOC->iqPID.ki = 1.0f;
+    pFOC->iqPID.kd = 1.0f;
+    pFOC->iqPID.outMax = 3.0f;
+
+    pFOC->tar_iq = 0.3f;
+
+
+    if(pFOC->sin_cos_65536 == NULL)
+    {
+        pFOC->sin_cos_65536 = sin_cos_65536;
+    }
+
+    if(pFOC->pSvpwm != NULL)
+    {
+        pFOC->pSvpwm->init(pFOC->pSvpwm);
+    }
+
+    if(pFOC->pRsSamp != NULL)
+    {
+        pFOC->pRsSamp->init(pFOC->pRsSamp);
+    }
+
+    if(pFOC->pSensor != NULL)
+    {
+        pFOC->pSensor->init(pFOC->pSensor);
+    }
+
+    pFOC->Enable            = MotorEnable;
+    pFOC->Process           = FocProcess;
+    pFOC->ClarkeTransform   = ClarkeTransform;
+    pFOC->ParkTransform     = ParkTransform;
+    pFOC->ParkAntiTransform = ParkAntiTransform;
+    pFOC->callback          = CallBack;
+
+    if(cb)
+    {
+        pFOC->callback = cb;
+    }
+
+    return true;
+}
+
+
 
 

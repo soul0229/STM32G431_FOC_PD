@@ -29,7 +29,7 @@ typedef enum
 } Ampere_Phase_t;
 
 
-typedef void(cb_t)(void *this);
+typedef void (cb_t)(void *this);
 
 typedef struct
 {
@@ -57,10 +57,14 @@ typedef struct
     Svpwm_t     *pSvpwm;
     RsSamp_t    *pRsSamp;
     Sensor_t    *pSensor;
+
     void        (*sin_cos_65536)(uint16_t angle, float *sine, float *cosine);
     void        (*Enable)(void *this);
-    float       (*GetEncoderAngle)(void *this);
-    void        (*GetPreCurrent)(void *this);
+    void        (*Process)(void *this);
+    void        (*ClarkeTransform)(void *this);
+    void        (*ParkTransform)(void *this);
+    void        (*ParkAntiTransform)(void *this);
+
     cb_t        *callback;
 } FOC_t;
 

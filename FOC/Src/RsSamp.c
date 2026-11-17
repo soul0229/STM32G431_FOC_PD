@@ -1,7 +1,5 @@
 #include "FocCommon.h"
 #include "RsSamp.h"
-#include <stdint.h>
-
 
 static bool RsSamp_init(void *this)
 {

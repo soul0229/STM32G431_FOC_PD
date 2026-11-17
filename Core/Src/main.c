@@ -20,7 +20,9 @@
 #include "main.h"
 #include "adc.h"
 #include "dma.h"
+#include "i2c.h"
 #include "tim.h"
+#include "ucpd.h"
 #include "usart.h"
 #include "gpio.h"
 
@@ -98,11 +100,12 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM3_Init();
   MX_TIM8_Init();
-  MX_USART3_UART_Init();
-  MX_USART1_UART_Init();
   MX_USB_PCD_Init();
+  MX_I2C1_Init();
+  MX_UCPD1_Init();
+  MX_USART3_UART_Init();
   /* USER CODE BEGIN 2 */
-  // FOC_motor[0] = motor_init(&htim1, &hadc1, NULL);
+  FOC_motor[0] = motor_init(&htim1, &hadc1, NULL);
   FOC_motor[1] = motor_init(&htim8, &hadc2, &htim2);
   /* USER CODE END 2 */
 
@@ -135,16 +138,18 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI|RCC_OSCILLATORTYPE_HSI48;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI|RCC_OSCILLATORTYPE_HSI48
+                              |RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
   RCC_OscInitStruct.HSI48State = RCC_HSI48_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
-  RCC_OscInitStruct.PLL.PLLM = RCC_PLLM_DIV1;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLM = RCC_PLLM_DIV2;
   RCC_OscInitStruct.PLL.PLLN = 21;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
-  RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV2;
+  RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV8;
   RCC_OscInitStruct.PLL.PLLR = RCC_PLLR_DIV2;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
@@ -169,34 +174,34 @@ void SystemClock_Config(void)
 /* USER CODE BEGIN 4 */
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) 
 {
-  if(htim == FOC_motor[1]->pSensor->priv)
-  {
-    uint8_t sector[1] = {HALL1_U_GPIO_Port->IDR & 0x7};
-    FOC_motor[1]->pSensor->update(FOC_motor[1]->pSensor, sector, 1);
+  // if(htim == FOC_motor[1]->pSensor->priv)
+  // {
+  //   uint8_t sector[1] = {HALL1_U_GPIO_Port->IDR & 0x7};
+  //   FOC_motor[1]->pSensor->update(FOC_motor[1]->pSensor, sector, 1);
 
-    // // if(htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1)
-    //   param.speed = HAL_TIM_ReadCapturedValue(&htim2, TIM_CHANNEL_1);
-    // param.HallA[2] = HAL_GPIO_ReadPin(HALL1_U_GPIO_Port, HALL1_U_Pin);
-    // param.HallA[1] = HAL_GPIO_ReadPin(HALL1_V_GPIO_Port, HALL1_V_Pin);
-    // param.HallA[0] = HAL_GPIO_ReadPin(HALL1_W_GPIO_Port, HALL1_W_Pin);
-  }
-  else if(htim == &htim3)
-  {
-    // param.HallB[2] = HAL_GPIO_ReadPin(HALL2_U_GPIO_Port, HALL2_U_Pin);
-    // param.HallB[1] = HAL_GPIO_ReadPin(HALL2_V_GPIO_Port, HALL2_V_Pin);
-    // param.HallB[0] = HAL_GPIO_ReadPin(HALL2_W_GPIO_Port, HALL2_W_Pin);
-  }
+  //   // // if(htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1)
+  //   //   param.speed = HAL_TIM_ReadCapturedValue(&htim2, TIM_CHANNEL_1);
+  //   // param.HallA[2] = HAL_GPIO_ReadPin(HALL1_U_GPIO_Port, HALL1_U_Pin);
+  //   // param.HallA[1] = HAL_GPIO_ReadPin(HALL1_V_GPIO_Port, HALL1_V_Pin);
+  //   // param.HallA[0] = HAL_GPIO_ReadPin(HALL1_W_GPIO_Port, HALL1_W_Pin);
+  // }
+  // else if(htim == &htim3)
+  // {
+  //   // param.HallB[2] = HAL_GPIO_ReadPin(HALL2_U_GPIO_Port, HALL2_U_Pin);
+  //   // param.HallB[1] = HAL_GPIO_ReadPin(HALL2_V_GPIO_Port, HALL2_V_Pin);
+  //   // param.HallB[0] = HAL_GPIO_ReadPin(HALL2_W_GPIO_Port, HALL2_W_Pin);
+  // }
 }
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
 {
     if(hadc == FOC_motor[1]->pRsSamp->pADC->priv)
     {
-      Foc_Process(FOC_motor[1]);
+      FOC_motor[1]->Process(FOC_motor[1]);
     }
     else if(hadc == FOC_motor[0]->pRsSamp->pADC->priv)
     {
-      Foc_Process(FOC_motor[0]);
+      FOC_motor[0]->Process(FOC_motor[0]);
     }
 }
 
@@ -205,7 +210,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 
   if(GPIO_Pin == KEY0_Pin)
   {
-    FOC_motor[1]->tar_iq -= 0.25;
+    FOC_motor[0]->Enable(FOC_motor[0]);
   }
   else if(GPIO_Pin == KEY1_Pin)
   {

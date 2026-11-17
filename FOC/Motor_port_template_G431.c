@@ -102,7 +102,7 @@ static const ADC_t adcDefaultCfg =
 	.amplifier 					= 11.0f,
 	.RefVolt 					= 3.3f,
 	.maxValue					= 4096,
-	.mOhm 						= 50,
+	.mOhm 						= 30,
 	.resistor_num				= 3,
 };
 
@@ -151,7 +151,7 @@ static const RsLPF_t RsLPFcDefaultCfg =
 	.sampFreq 		= 20000
 };
 
-extern UART_HandleTypeDef huart1;
+extern UART_HandleTypeDef huart3;
 const FocParam_t default_param = {.header  = 0x55aa,.tail = 0xaa55};
 FocParam_t param_buff[PRINTF_BUF_NUM * PRINTF_SUBBUF_NUM];
 FocParam_t *param = param_buff;
@@ -185,7 +185,7 @@ void foc_call_back(void *this)
 
 	if((counter & PRINTF_SUBBUF_MASK) == (PRINTF_SUBBUF_MASK))
     {
-        HAL_UART_Transmit_DMA(&huart1, (uint8_t*)(param - PRINTF_SUBBUF_MASK), sizeof(FocParam_t) * PRINTF_SUBBUF_NUM);
+        HAL_UART_Transmit_DMA(&huart3, (uint8_t*)(param - PRINTF_SUBBUF_MASK), sizeof(FocParam_t) * PRINTF_SUBBUF_NUM);
     }
     param = &param_buff[++counter & PRINTF_TOTAL_MASK];
 }

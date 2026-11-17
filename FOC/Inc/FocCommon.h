@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stddef.h>
 
 #include "Sensor.h"
 #include "Svpwm.h"
@@ -28,6 +29,5 @@ bool RsSamp_register(FOC_t *pFOC, const ADC_t *pADC, const RsLPF_t *pLPF);
 bool RsSamp_unregister(FOC_t *pFOC);
 
 bool FOC_init(FOC_t *pFOC, cb_t *cb);
-void Foc_Process(FOC_t *pFOC);
 
 #endif
